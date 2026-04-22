@@ -1,36 +1,68 @@
-import { useEffect, useRef, useState } from "react";
-import pageOne from "../asset/page_1.png";
-import pageThree from "../asset/page_3.png";
+import { useEffect, useMemo, useState } from "react";
 
-const PAGES = [
-  { src: pageOne, alt: "The Feeler — Soft Light", fallback: "rgb(201,131,122)" },
-  { src: pageThree, alt: "The Seeker — Burning Horizon", fallback: "rgb(55,72,95)" }
-];
+type GroupKey = "feeler" | "keeper" | "seeker" | "thinker";
 
-const TOTAL_SLIDES = PAGES.length + 1;
-const DRAG_THRESHOLD = 55;
+interface SlidePair {
+  key: string;
+  number: number;
+  src: string;
+  role: "Title" | "Explanation";
+}
+
+interface FolderDeck {
+  folderName: string;
+  pairs: SlidePair[];
+}
+
+const GROUP_LABELS: Record<GroupKey, string> = {
+  feeler: "feeler",
+  keeper: "Keeper",
+  seeker: "Seeeker",
+  thinker: "Thinker"
+};
+
+const GROUP_ORDER: GroupKey[] = ["feeler", "keeper", "seeker", "thinker"];
+
+const IMAGE_MODULES = import.meta.glob("../Assets/**/*.{png,jpg,jpeg,webp}", {
+  eager: true,
+  import: "default"
+}) as Record<string, string>;
 
 async function extractColor(src: string): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      const SIZE = 80;
+      const size = 80;
       const canvas = document.createElement("canvas");
-      canvas.width = SIZE;
-      canvas.height = SIZE;
+      canvas.width = size;
+      canvas.height = size;
       const ctx = canvas.getContext("2d");
-      if (!ctx) { resolve(""); return; }
-      ctx.drawImage(img, 0, 0, SIZE, SIZE);
-      const pts: [number, number][] = [
-        [2, 2], [SIZE - 3, 2], [2, SIZE - 3], [SIZE - 3, SIZE - 3],
-        [Math.floor(SIZE / 2), 2], [2, Math.floor(SIZE / 2)]
-      ];
-      let r = 0, g = 0, b = 0;
-      for (const [x, y] of pts) {
-        const d = ctx.getImageData(x, y, 1, 1).data;
-        r += d[0]; g += d[1]; b += d[2];
+      if (!ctx) {
+        resolve("");
+        return;
       }
-      const n = pts.length;
+
+      ctx.drawImage(img, 0, 0, size, size);
+      const points: [number, number][] = [
+        [2, 2],
+        [size - 3, 2],
+        [2, size - 3],
+        [size - 3, size - 3],
+        [Math.floor(size / 2), 2],
+        [2, Math.floor(size / 2)]
+      ];
+
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      for (const [x, y] of points) {
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        r += pixel[0];
+        g += pixel[1];
+        b += pixel[2];
+      }
+
+      const n = points.length;
       resolve(`rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`);
     };
     img.onerror = () => resolve("");
@@ -38,118 +70,144 @@ async function extractColor(src: string): Promise<string> {
   });
 }
 
-function applyBgColor(color: string) {
+function applyBgColor(color: string): void {
   document.documentElement.style.setProperty("--extracted-bg", color);
-  const m = color.match(/\d+/g);
-  if (m) {
-    const [r, g, bb] = m.map(Number);
-    document.documentElement.style.setProperty(
-      "--extracted-bg-deep",
-      `rgb(${Math.round(r * 0.82)},${Math.round(g * 0.82)},${Math.round(bb * 0.82)})`
-    );
+  const rgb = color.match(/\d+/g);
+  if (!rgb) {
+    return;
   }
+
+  const [r, g, b] = rgb.map(Number);
+  document.documentElement.style.setProperty(
+    "--extracted-bg-deep",
+    `rgb(${Math.round(r * 0.82)},${Math.round(g * 0.82)},${Math.round(b * 0.82)})`
+  );
+}
+
+function buildDecks(): Record<GroupKey, FolderDeck[]> {
+  const tree: Record<GroupKey, Record<string, { number: number; src: string }[]>> = {
+    feeler: {},
+    keeper: {},
+    seeker: {},
+    thinker: {}
+  };
+
+  for (const [path, src] of Object.entries(IMAGE_MODULES)) {
+    const match = path.match(/\.\.\/Assets\/([^/]+)\/([^/]+)\/([^/]+)$/);
+    if (!match) {
+      continue;
+    }
+
+    const [, group, folder, fileName] = match;
+    if (!(group in tree)) {
+      continue;
+    }
+
+    const numberMatch = fileName.match(/(\d+)/);
+    if (!numberMatch) {
+      continue;
+    }
+
+    const number = Number(numberMatch[1]);
+    const typedGroup = group as GroupKey;
+    tree[typedGroup][folder] ??= [];
+    tree[typedGroup][folder].push({ number, src });
+  }
+
+  const decks = {} as Record<GroupKey, FolderDeck[]>;
+  for (const group of GROUP_ORDER) {
+    const folders = Object.entries(tree[group])
+      .map(([folderName, files]) => {
+        const pairs: SlidePair[] = files
+          .sort((a, b) => a.number - b.number)
+          .map((file) => ({
+            key: `${folderName}-${file.number}`,
+            number: file.number,
+            src: file.src,
+            role: file.number % 2 === 1 ? "Title" : "Explanation"
+          }));
+
+        return { folderName, pairs };
+      })
+      .sort((a, b) => a.folderName.localeCompare(b.folderName));
+
+    decks[group] = folders;
+  }
+
+  return decks;
 }
 
 export default function App() {
-  const [slide, setSlide] = useState(0);
-  const [colors, setColors] = useState(PAGES.map((p) => p.fallback));
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragging = useRef(false);
-  const startY = useRef(0);
-  const dragYRef = useRef(0);
+  const decksByGroup = useMemo(() => buildDecks(), []);
+  const [activeGroup, setActiveGroup] = useState<GroupKey | null>(null);
 
   useEffect(() => {
-    Promise.all(PAGES.map((p) => extractColor(p.src))).then((extracted) => {
-      setColors(extracted.map((c, i) => c || PAGES[i].fallback));
-    });
-  }, []);
-
-  useEffect(() => {
-    const idx = Math.min(Math.max(slide - 1, 0), colors.length - 1);
-    applyBgColor(colors[idx]);
-  }, [slide, colors]);
-
-  const goTo = (next: number) => {
-    setSlide(Math.max(0, Math.min(next, TOTAL_SLIDES - 1)));
-    dragYRef.current = 0;
-    setDragY(0);
-    dragging.current = false;
-    setIsDragging(false);
-  };
-
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    dragging.current = true;
-    setIsDragging(true);
-    startY.current = e.clientY;
-    dragYRef.current = 0;
-    setDragY(0);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
-    const delta = e.clientY - startY.current;
-    dragYRef.current = delta;
-    setDragY(delta);
-  };
-
-  const onPointerUp = () => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    setIsDragging(false);
-    const dy = dragYRef.current;
-    if (dy < -DRAG_THRESHOLD) goTo(slide + 1);
-    else if (dy > DRAG_THRESHOLD) goTo(slide - 1);
-    else {
-      dragYRef.current = 0;
-      setDragY(0);
+    if (!activeGroup) {
+      applyBgColor("rgb(201,131,122)");
+      return;
     }
-  };
 
-  const trackPct = -(slide * 100) + (dragY / window.innerHeight) * 100;
-  const activeSlide = slide;
+    const firstImage = decksByGroup[activeGroup]?.[0]?.pairs?.[0]?.src;
+    if (!firstImage) {
+      return;
+    }
+
+    extractColor(firstImage).then((c) => {
+      applyBgColor(c || "rgb(201,131,122)");
+    });
+  }, [activeGroup, decksByGroup]);
+
+  if (!activeGroup) {
+    return (
+      <div className="app-root menu-root">
+        <main className="menu-card animate-rise">
+          <p className="eyebrow">Local Test</p>
+          <h1 className="menu-title">Questionnaire Menu</h1>
+          <p className="menu-copy">Pick one tab to view all folders and scroll through cards.</p>
+
+          <div className="tab-grid">
+            {GROUP_ORDER.map((group) => (
+              <button key={group} className="tab-btn" onClick={() => setActiveGroup(group)}>
+                {GROUP_LABELS[group]}
+              </button>
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="presentation-shell"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-    >
-      <div className="slideshow-stage" aria-live="polite">
-        <div
-          className={`slideshow-track${isDragging ? " is-dragging" : ""}`}
-          style={{ transform: `translateY(${trackPct}dvh)` }}
-        >
-          <section className="slide slide-intro">
-            <div className="intro-card animate-rise">
-              <p className="eyebrow">Sixory Specialty Coffee</p>
-              <h1 className="intro-title">Questionnaire</h1>
-              <p className="intro-copy">Swipe up or tap to begin</p>
-              <button className="slide-button" onClick={() => goTo(1)}>Begin</button>
-            </div>
+    <div className="app-root">
+      <header className="gallery-header">
+        <button className="back-btn" onClick={() => setActiveGroup(null)}>
+          Back to Menu
+        </button>
+        <h2 className="gallery-title">{GROUP_LABELS[activeGroup]}</h2>
+      </header>
+
+      <main className="gallery-scroll">
+        {decksByGroup[activeGroup].map((deck) => (
+          <section key={deck.folderName} className="folder-block">
+            <h3 className="folder-title">{deck.folderName}</h3>
+
+            {deck.pairs.length === 0 ? (
+              <p className="empty-note">No numbered cards found in this folder.</p>
+            ) : (
+              <div className="pair-list">
+                {deck.pairs.map((pair) => (
+                  <article key={pair.key} className="pair-card">
+                    <p className="pair-label">
+                      {pair.role} #{pair.number}
+                    </p>
+                    <img src={pair.src} alt={`${deck.folderName} ${pair.role.toLowerCase()} ${pair.number}`} className="pair-image" />
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
-
-          {PAGES.map((page) => (
-            <section key={page.src} className="slide slide-page">
-              <img src={page.src} alt={page.alt} className="page-image" draggable={false} />
-            </section>
-          ))}
-        </div>
-      </div>
-
-      <nav className="dot-nav" aria-label="Slide navigation">
-        {Array.from({ length: TOTAL_SLIDES }).map((_, i) => (
-          <button
-            key={i}
-            className={`dot-btn${activeSlide === i ? " active" : ""}`}
-            onClick={() => goTo(i)}
-            aria-label={`Slide ${i + 1}`}
-          />
         ))}
-      </nav>
+      </main>
     </div>
   );
 }
