@@ -1,9 +1,12 @@
 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600&display=swap");
 
 :root {
-  --rose-base: #cb978e;
-  --rose-soft: #d4a39a;
-  --rose-deep: #b9867d;
+  /* Fallbacks used before the canvas extraction resolves */
+  --extracted-bg: rgb(201, 131, 122);
+  --extracted-bg-deep: rgb(177, 115, 107);
+  --rose-base: var(--extracted-bg);
+  --rose-soft: var(--extracted-bg);
+  --rose-deep: var(--extracted-bg-deep);
   --ink: #1a2b82;
   --paper: #fff8f5;
   --text-on-rose: rgba(255, 250, 247, 0.98);
@@ -28,8 +31,9 @@ body {
   font-family: "Manrope", sans-serif;
   background:
     radial-gradient(circle at top right, rgba(255, 255, 255, 0.1), transparent 30%),
-    linear-gradient(180deg, var(--rose-soft), var(--rose-base) 48%, var(--rose-deep));
+    linear-gradient(180deg, var(--extracted-bg), var(--extracted-bg) 48%, var(--extracted-bg-deep));
   color: var(--text-on-rose);
+  transition: background 400ms ease;
 }
 
 button,
@@ -53,6 +57,10 @@ button {
 
 .slideshow-track {
   transition: transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.slideshow-track.is-dragging {
+  transition: none;
 }
 
 .slide {
@@ -100,23 +108,14 @@ button {
   color: var(--text-soft);
 }
 
-.intro-title,
-.reference-title {
+.intro-title {
   margin: 0;
   font-family: "Cormorant Garamond", Georgia, serif;
   font-weight: 600;
   letter-spacing: 0.03em;
-}
-
-.intro-title {
   font-size: clamp(3rem, 13vw, 5.6rem);
   line-height: 0.94;
   text-transform: uppercase;
-}
-
-.reference-title {
-  font-size: clamp(1.8rem, 7vw, 2.8rem);
-  line-height: 1;
 }
 
 .intro-copy {
@@ -157,36 +156,50 @@ button {
   background: transparent;
 }
 
-.slide-reference {
-  gap: 1rem;
-  justify-content: flex-start;
-  padding-top: max(1.25rem, env(safe-area-inset-top));
+/* Page image slides */
+.slide-page {
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  user-select: none;
 }
 
-.reference-copy {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.reference-frame {
-  margin: 0;
-  padding: 0.7rem;
-  border: 1px solid var(--edge);
-  border-radius: 1.4rem;
-  background: rgba(255, 248, 245, 0.08);
-  box-shadow: var(--shadow);
-}
-
-.reference-image {
+.page-image {
   display: block;
   width: 100%;
-  height: auto;
-  border-radius: 1rem;
+  height: 100dvh;
+  max-width: var(--max-width);
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
 }
 
-.slide-actions {
+/* Dot navigation */
+.dot-nav {
+  position: fixed;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
-  justify-content: flex-start;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.dot-btn {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  border: none;
+  background: rgba(255, 248, 245, 0.38);
+  padding: 0;
+  transition: background 250ms ease, transform 250ms ease;
+}
+
+.dot-btn.active {
+  background: rgba(255, 248, 245, 0.95);
+  transform: scaleY(2.6);
 }
 
 .animate-rise {
@@ -208,9 +221,5 @@ button {
 @media (min-width: 640px) {
   .slide {
     padding-inline: 1.5rem;
-  }
-
-  .slide-reference {
-    justify-content: center;
   }
 }
