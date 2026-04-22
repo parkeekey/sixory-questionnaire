@@ -65,6 +65,13 @@ button {
   text-align: center;
 }
 
+.menu-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .quiz-card {
   text-align: left;
 }
@@ -167,6 +174,26 @@ button {
   transition: background 150ms ease, transform 150ms ease;
 }
 
+.lang-switch {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.lang-btn {
+  min-height: 2rem;
+  border-radius: 9999px;
+  border: 1px solid var(--edge);
+  background: rgba(255, 248, 245, 0.08);
+  color: var(--paper);
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.lang-btn.active {
+  background: rgba(255, 248, 245, 0.3);
+}
+
 .tab-btn:hover,
 .back-btn:hover {
   background: rgba(255, 248, 245, 0.15);
@@ -188,7 +215,7 @@ button {
   border-bottom: 1px solid var(--edge);
   padding: 0.85rem 1rem;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   gap: 0.75rem;
   align-items: center;
 }
