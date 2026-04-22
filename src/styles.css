@@ -259,12 +259,18 @@ button {
 }
 
 .pair-card {
+  position: relative;
   border: 1px solid var(--edge);
   border-radius: 0.75rem;
   background: rgba(255, 248, 245, 0.06);
   padding: 0.6rem;
   display: grid;
   gap: 0.45rem;
+  overflow: hidden;
+}
+
+.pair-card.locked .pair-image {
+  filter: blur(12px);
 }
 
 .pair-label {
@@ -288,6 +294,67 @@ button {
   margin: 0;
   font-size: 0.82rem;
   color: var(--text-soft);
+}
+
+.dev-lock-panel {
+  border: 1px solid var(--edge);
+  border-radius: 0.75rem;
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.55rem;
+  background: rgba(255, 248, 245, 0.08);
+}
+
+.dev-lock-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  width: min(100%, 22rem);
+}
+
+.dev-password-input {
+  min-height: 2.7rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--edge);
+  background: rgba(255, 248, 245, 0.08);
+  color: var(--paper);
+  padding: 0.55rem 0.65rem;
+}
+
+.dev-password-input::placeholder {
+  color: var(--text-soft);
+}
+
+.password-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #ffd2d2;
+}
+
+.lock-overlay {
+  position: absolute;
+  inset: 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--edge);
+  background: rgba(24, 11, 8, 0.62);
+  color: var(--paper);
+  display: grid;
+  place-items: center;
+  padding: 0.65rem;
+}
+
+.lock-overlay-inner {
+  width: min(100%, 24rem);
+  display: grid;
+  gap: 0.55rem;
+  justify-items: center;
+}
+
+.lock-overlay-text {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .animate-rise {

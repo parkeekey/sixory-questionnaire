@@ -9,6 +9,7 @@ import {
 
 type SectionName = "A" | "B";
 type Lang = "th" | "en" | "zh";
+const DEV_PASSWORD = "1234";
 
 interface FlatQuestion extends Question {
   section: SectionName;
@@ -16,6 +17,7 @@ interface FlatQuestion extends Question {
 
 interface ResultImage {
   number: number;
+  pageIndex: number;
   src: string;
   role: "Title" | "Explanation";
 }
@@ -48,11 +50,18 @@ const uiText: Record<
     titleRole: string;
     explanationRole: string;
     noChoiceLabel: string;
+    devLockOn: string;
+    devLockOff: string;
+    passwordPlaceholder: string;
+    unlock: string;
+    lockedHint: string;
+    wrongPassword: string;
+    unlocked: string;
   }
 > = {
   th: {
-    appEyebrow: "Sixory Coffee Lab",
-    menuTitle: "WHO ARE YOU",
+    appEyebrow: "Sixory x Hacking coffee roaster",
+    menuTitle: "CHOOSE WHO YOU ARE",
     menuCopy: "ตอบคำถาม 7 ข้อ เพื่อหา identity + state และแสดงชุดการ์ดที่ตรงกับคุณ",
     startQuiz: "เริ่มทำแบบทดสอบ",
     backToMenu: "กลับไปเมนู",
@@ -66,11 +75,18 @@ const uiText: Record<
     questionLabel: "คำถาม",
     titleRole: "หัวข้อ",
     explanationRole: "คำอธิบาย",
-    noChoiceLabel: "ยังไม่มีคำแปลตัวเลือกนี้"
+    noChoiceLabel: "ยังไม่มีคำแปลตัวเลือกนี้",
+    devLockOn: "ปิด Dev Lock",
+    devLockOff: "เปิด Dev Lock",
+    passwordPlaceholder: "ใส่รหัสผ่าน",
+    unlock: "ปลดล็อก",
+    lockedHint: `หน้า 2 จะถูกเบลอจนกว่าจะใส่รหัสผ่าน`,
+    wrongPassword: "รหัสผ่านไม่ถูกต้อง",
+    unlocked: "ปลดล็อกแล้ว"
   },
   en: {
-    appEyebrow: "Sixory Coffee Lab",
-    menuTitle: "WHO ARE YOU",
+    appEyebrow: "Sixory x Hacking coffee roaster",
+    menuTitle: "CHOOSE WHO YOU ARE",
     menuCopy: "Answer 7 questions to find your identity + state and reveal your matching card set.",
     startQuiz: "Start Quiz",
     backToMenu: "Back to Menu",
@@ -84,11 +100,18 @@ const uiText: Record<
     questionLabel: "Question",
     titleRole: "Title",
     explanationRole: "Explanation",
-    noChoiceLabel: "No translation for this choice yet"
+    noChoiceLabel: "No translation for this choice yet",
+    devLockOn: "Disable Dev Lock",
+    devLockOff: "Enable Dev Lock",
+    passwordPlaceholder: "Enter password",
+    unlock: "Unlock",
+    lockedHint: `Result page 2 is blurred until password is entered`,
+    wrongPassword: "Wrong password",
+    unlocked: "Unlocked"
   },
   zh: {
-    appEyebrow: "Sixory Coffee Lab",
-    menuTitle: "WHO ARE YOU",
+    appEyebrow: "Sixory x Hacking coffee roaster",
+    menuTitle: "CHOOSE WHO YOU ARE",
     menuCopy: "回答 7 个问题，找出你的 identity + state，并显示对应卡片组合。",
     startQuiz: "开始测试",
     backToMenu: "返回菜单",
@@ -102,7 +125,14 @@ const uiText: Record<
     questionLabel: "问题",
     titleRole: "标题",
     explanationRole: "说明",
-    noChoiceLabel: "该选项暂无翻译"
+    noChoiceLabel: "该选项暂无翻译",
+    devLockOn: "关闭 Dev 锁",
+    devLockOff: "开启 Dev 锁",
+    passwordPlaceholder: "输入密码",
+    unlock: "解锁",
+    lockedHint: `结果第 2 页会被模糊，直到输入密码 `,
+    wrongPassword: "密码错误",
+    unlocked: "已解锁"
   }
 };
 
@@ -224,9 +254,10 @@ function buildFolderImages(): Record<string, ResultImage[]> {
   for (const [folder, files] of Object.entries(map)) {
     out[folder] = files
       .sort((a, b) => a.number - b.number)
-      .map((f) => ({
+      .map((f, i) => ({
         ...f,
-        role: f.number % 2 === 1 ? "Title" : "Explanation"
+        pageIndex: i + 1,
+        role: i % 2 === 0 ? "Title" : "Explanation"
       }));
   }
 
@@ -368,6 +399,10 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [isPasswordLockEnabled, setIsPasswordLockEnabled] = useState(true);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [isResultUnlocked, setIsResultUnlocked] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
   const [result, setResult] = useState<{
     identity: Identity;
     state: EmotionState;
@@ -421,6 +456,30 @@ export default function App() {
     setIndex(0);
     setAnswers({});
     setResult(null);
+    setPasswordInput("");
+    setIsResultUnlocked(false);
+    setPasswordError("");
+  };
+
+  const toggleDevLock = () => {
+    setIsPasswordLockEnabled((enabled) => {
+      const next = !enabled;
+      if (next) {
+        setIsResultUnlocked(false);
+      }
+      setPasswordError("");
+      return next;
+    });
+  };
+
+  const unlockResult = () => {
+    if (passwordInput.trim() === DEV_PASSWORD) {
+      setIsResultUnlocked(true);
+      setPasswordError("");
+      return;
+    }
+    setIsResultUnlocked(false);
+    setPasswordError(t.wrongPassword);
   };
 
   if (!started) {
@@ -443,6 +502,7 @@ export default function App() {
 
   if (result) {
     const images = folderImages[result.assetFolder] ?? [];
+    const firstLockedPageTwoNumber = images.find((img) => img.pageIndex === 2)?.number;
     return (
       <div className="app-root">
         <header className="gallery-header">
@@ -457,16 +517,62 @@ export default function App() {
           <section className="folder-block">
             <h3 className="folder-title">{t.resultAsset}: {result.assetFolder}</h3>
 
+            <div className="dev-lock-panel">
+              <button className="back-btn" onClick={toggleDevLock}>
+                {isPasswordLockEnabled ? t.devLockOn : t.devLockOff}
+              </button>
+
+              {isPasswordLockEnabled ? (
+                <p className="empty-note">
+                  {isResultUnlocked ? t.unlocked : t.lockedHint}
+                </p>
+              ) : null}
+              {passwordError ? <p className="password-error">{passwordError}</p> : null}
+            </div>
+
             {images.length === 0 ? (
               <p className="empty-note">{t.noImages}</p>
             ) : (
               <div className="pair-list">
-                {images.map((img) => (
-                  <article key={`${result.assetFolder}-${img.number}`} className="pair-card">
-                    <p className="pair-label">{img.role === "Title" ? t.titleRole : t.explanationRole} #{img.number}</p>
-                    <img src={img.src} alt={`${result.assetFolder} ${img.role.toLowerCase()} ${img.number}`} className="pair-image" />
-                  </article>
-                ))}
+                {images.map((img) => {
+                  const isLockedPageTwo = isPasswordLockEnabled && !isResultUnlocked && img.pageIndex === 2;
+
+                  return (
+                    <article
+                      key={`${result.assetFolder}-${img.number}`}
+                      className={`pair-card${isLockedPageTwo ? " locked" : ""}`}
+                    >
+                      <p className="pair-label">{img.role === "Title" ? t.titleRole : t.explanationRole} #{img.number}</p>
+                      <img src={img.src} alt={`${result.assetFolder} ${img.role.toLowerCase()} ${img.number}`} className="pair-image" />
+                      {isLockedPageTwo ? (
+                        <div className="lock-overlay">
+                          {img.number === firstLockedPageTwoNumber ? (
+                            <div className="lock-overlay-inner">
+                              <p className="lock-overlay-text">{t.lockedHint}</p>
+                              <div className="dev-lock-controls">
+                                <input
+                                  className="dev-password-input"
+                                  type="password"
+                                  value={passwordInput}
+                                  onChange={(event) => setPasswordInput(event.target.value)}
+                                  placeholder={t.passwordPlaceholder}
+                                />
+                                <button className="tab-btn" onClick={unlockResult}>
+                                  {t.unlock}
+                                </button>
+                              </div>
+                              {passwordError ? <p className="password-error">{passwordError}</p> : null}
+                            </div>
+                          ) : (
+                            <div className="lock-overlay-inner">
+                              <p className="lock-overlay-text">{t.lockedHint}</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>
