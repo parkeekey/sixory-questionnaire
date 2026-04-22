@@ -1,32 +1,104 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  questionnaireSpec,
+  type Choice,
+  type EmotionState,
+  type Identity,
+  type Question
+} from "./quiz/data/schema";
 
-type GroupKey = "feeler" | "keeper" | "seeker" | "thinker";
+type SectionName = "A" | "B";
 
-interface SlidePair {
-  key: string;
+interface FlatQuestion extends Question {
+  section: SectionName;
+}
+
+interface ResultImage {
   number: number;
   src: string;
   role: "Title" | "Explanation";
 }
 
-interface FolderDeck {
-  folderName: string;
-  pairs: SlidePair[];
-}
-
-const GROUP_LABELS: Record<GroupKey, string> = {
-  feeler: "feeler",
-  keeper: "Keeper",
-  seeker: "Seeeker",
-  thinker: "Thinker"
-};
-
-const GROUP_ORDER: GroupKey[] = ["feeler", "keeper", "seeker", "thinker"];
-
 const IMAGE_MODULES = import.meta.glob("../Assets/**/*.{png,jpg,jpeg,webp}", {
   eager: true,
   import: "default"
 }) as Record<string, string>;
+
+const identityOrder: Identity[] = ["Feeler", "Seeker", "Thinker", "Keeper"];
+const stateOrder: EmotionState[] = ["Clear", "Intense", "Quiet"];
+
+function flattenQuestions(): FlatQuestion[] {
+  const sectionA = questionnaireSpec.questionnaire.sectionA_archetype.questions.map((q) => ({ ...q, section: "A" as const }));
+  const sectionB = questionnaireSpec.questionnaire.sectionB_emotion.questions.map((q) => ({ ...q, section: "B" as const }));
+  return [...sectionA, ...sectionB];
+}
+
+function buildFolderImages(): Record<string, ResultImage[]> {
+  const map: Record<string, { number: number; src: string }[]> = {};
+
+  for (const [path, src] of Object.entries(IMAGE_MODULES)) {
+    const match = path.match(/\.\.\/Assets\/[^/]+\/([^/]+)\/([^/]+)$/);
+    if (!match) continue;
+
+    const [, folderName, fileName] = match;
+    const numberMatch = fileName.match(/(\d+)/);
+    if (!numberMatch) continue;
+
+    map[folderName] ??= [];
+    map[folderName].push({ number: Number(numberMatch[1]), src });
+  }
+
+  const out: Record<string, ResultImage[]> = {};
+  for (const [folder, files] of Object.entries(map)) {
+    out[folder] = files
+      .sort((a, b) => a.number - b.number)
+      .map((f) => ({
+        ...f,
+        role: f.number % 2 === 1 ? "Title" : "Explanation"
+      }));
+  }
+
+  return out;
+}
+
+function pickTopIdentity(answers: Record<string, string>, questions: FlatQuestion[]): Identity {
+  const counts: Record<Identity, number> = {
+    Feeler: 0,
+    Seeker: 0,
+    Thinker: 0,
+    Keeper: 0
+  };
+
+  for (const q of questions.filter((x) => x.section === "A")) {
+    const choiceKey = answers[q.id];
+    if (!choiceKey) continue;
+    const choice = q.choices[choiceKey];
+    if (choice?.identity) {
+      counts[choice.identity] += 1;
+    }
+  }
+
+  return identityOrder.reduce((best, current) => (counts[current] > counts[best] ? current : best), identityOrder[0]);
+}
+
+function pickTopState(answers: Record<string, string>, questions: FlatQuestion[]): EmotionState {
+  const counts: Record<EmotionState, number> = {
+    Clear: 0,
+    Intense: 0,
+    Quiet: 0
+  };
+
+  for (const q of questions.filter((x) => x.section === "B")) {
+    const choiceKey = answers[q.id];
+    if (!choiceKey) continue;
+    const choice = q.choices[choiceKey];
+    if (choice?.state) {
+      counts[choice.state] += 1;
+    }
+  }
+
+  return stateOrder.reduce((best, current) => (counts[current] > counts[best] ? current : best), stateOrder[0]);
+}
 
 async function extractColor(src: string): Promise<string> {
   return new Promise((resolve) => {
@@ -73,9 +145,7 @@ async function extractColor(src: string): Promise<string> {
 function applyBgColor(color: string): void {
   document.documentElement.style.setProperty("--extracted-bg", color);
   const rgb = color.match(/\d+/g);
-  if (!rgb) {
-    return;
-  }
+  if (!rgb) return;
 
   const [r, g, b] = rgb.map(Number);
   document.documentElement.style.setProperty(
@@ -84,129 +154,138 @@ function applyBgColor(color: string): void {
   );
 }
 
-function buildDecks(): Record<GroupKey, FolderDeck[]> {
-  const tree: Record<GroupKey, Record<string, { number: number; src: string }[]>> = {
-    feeler: {},
-    keeper: {},
-    seeker: {},
-    thinker: {}
-  };
-
-  for (const [path, src] of Object.entries(IMAGE_MODULES)) {
-    const match = path.match(/\.\.\/Assets\/([^/]+)\/([^/]+)\/([^/]+)$/);
-    if (!match) {
-      continue;
-    }
-
-    const [, group, folder, fileName] = match;
-    if (!(group in tree)) {
-      continue;
-    }
-
-    const numberMatch = fileName.match(/(\d+)/);
-    if (!numberMatch) {
-      continue;
-    }
-
-    const number = Number(numberMatch[1]);
-    const typedGroup = group as GroupKey;
-    tree[typedGroup][folder] ??= [];
-    tree[typedGroup][folder].push({ number, src });
-  }
-
-  const decks = {} as Record<GroupKey, FolderDeck[]>;
-  for (const group of GROUP_ORDER) {
-    const folders = Object.entries(tree[group])
-      .map(([folderName, files]) => {
-        const pairs: SlidePair[] = files
-          .sort((a, b) => a.number - b.number)
-          .map((file) => ({
-            key: `${folderName}-${file.number}`,
-            number: file.number,
-            src: file.src,
-            role: file.number % 2 === 1 ? "Title" : "Explanation"
-          }));
-
-        return { folderName, pairs };
-      })
-      .sort((a, b) => a.folderName.localeCompare(b.folderName));
-
-    decks[group] = folders;
-  }
-
-  return decks;
+function choiceEntries(choices: Record<string, Choice>): Array<[string, Choice]> {
+  return Object.entries(choices);
 }
 
 export default function App() {
-  const decksByGroup = useMemo(() => buildDecks(), []);
-  const [activeGroup, setActiveGroup] = useState<GroupKey | null>(null);
+  const questions = useMemo(() => flattenQuestions(), []);
+  const folderImages = useMemo(() => buildFolderImages(), []);
+
+  const [started, setStarted] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<{
+    identity: Identity;
+    state: EmotionState;
+    assetFolder: string;
+  } | null>(null);
+
+  const current = questions[index];
+  const selectedChoice = current ? answers[current.id] : undefined;
+  const progress = Math.round(((index + 1) / Math.max(questions.length, 1)) * 100);
 
   useEffect(() => {
-    if (!activeGroup) {
+    const firstResultImage = result ? folderImages[result.assetFolder]?.[0]?.src : undefined;
+    if (!firstResultImage) {
       applyBgColor("rgb(201,131,122)");
       return;
     }
 
-    const firstImage = decksByGroup[activeGroup]?.[0]?.pairs?.[0]?.src;
-    if (!firstImage) {
+    extractColor(firstResultImage).then((c) => {
+      applyBgColor(c || "rgb(201,131,122)");
+    });
+  }, [result, folderImages]);
+
+  const submitCurrentAndGoNext = () => {
+    if (!current || !selectedChoice) return;
+
+    if (index < questions.length - 1) {
+      setIndex((v) => v + 1);
       return;
     }
 
-    extractColor(firstImage).then((c) => {
-      applyBgColor(c || "rgb(201,131,122)");
-    });
-  }, [activeGroup, decksByGroup]);
+    const identity = pickTopIdentity(answers, questions);
+    const state = pickTopState(answers, questions);
+    const assetFolder = questionnaireSpec.mapping.identity_state_to_asset[identity][state];
+    setResult({ identity, state, assetFolder });
+  };
 
-  if (!activeGroup) {
+  const restart = () => {
+    setStarted(false);
+    setIndex(0);
+    setAnswers({});
+    setResult(null);
+  };
+
+  if (!started) {
     return (
       <div className="app-root menu-root">
         <main className="menu-card animate-rise">
-          <p className="eyebrow">Local Test</p>
-          <h1 className="menu-title">Questionnaire Menu</h1>
-          <p className="menu-copy">Pick one tab to view all folders and scroll through cards.</p>
+          <p className="eyebrow">Sixory Coffee Lab</p>
+          <h1 className="menu-title">Questionnaire Test</h1>
+          <p className="menu-copy">ตอบคำถาม 7 ข้อ เพื่อหา identity + state และแสดงชุดการ์ดที่ตรงกับคุณ</p>
+          <button className="tab-btn" onClick={() => setStarted(true)}>
+            Start Quiz
+          </button>
+        </main>
+      </div>
+    );
+  }
 
-          <div className="tab-grid">
-            {GROUP_ORDER.map((group) => (
-              <button key={group} className="tab-btn" onClick={() => setActiveGroup(group)}>
-                {GROUP_LABELS[group]}
-              </button>
-            ))}
-          </div>
+  if (result) {
+    const images = folderImages[result.assetFolder] ?? [];
+    return (
+      <div className="app-root">
+        <header className="gallery-header">
+          <button className="back-btn" onClick={restart}>
+            Back to Menu
+          </button>
+          <h2 className="gallery-title">{result.identity} / {result.state}</h2>
+        </header>
+
+        <main className="gallery-scroll">
+          <section className="folder-block">
+            <h3 className="folder-title">Result Asset: {result.assetFolder}</h3>
+
+            {images.length === 0 ? (
+              <p className="empty-note">No images found in mapped folder.</p>
+            ) : (
+              <div className="pair-list">
+                {images.map((img) => (
+                  <article key={`${result.assetFolder}-${img.number}`} className="pair-card">
+                    <p className="pair-label">{img.role} #{img.number}</p>
+                    <img src={img.src} alt={`${result.assetFolder} ${img.role.toLowerCase()} ${img.number}`} className="pair-image" />
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="app-root">
-      <header className="gallery-header">
-        <button className="back-btn" onClick={() => setActiveGroup(null)}>
-          Back to Menu
-        </button>
-        <h2 className="gallery-title">{GROUP_LABELS[activeGroup]}</h2>
-      </header>
+    <div className="app-root menu-root">
+      <main className="menu-card animate-rise quiz-card">
+        <p className="eyebrow">
+          {current.section === "A" ? "Section A: Identity" : "Section B: State"}
+        </p>
+        <p className="progress-text">Question {index + 1}/{questions.length} • {progress}%</p>
+        <h2 className="question-title">{current.text}</h2>
 
-      <main className="gallery-scroll">
-        {decksByGroup[activeGroup].map((deck) => (
-          <section key={deck.folderName} className="folder-block">
-            <h3 className="folder-title">{deck.folderName}</h3>
+        <div className="option-list">
+          {choiceEntries(current.choices).map(([key, choice]) => (
+            <button
+              key={key}
+              className={`option-btn${selectedChoice === key ? " selected" : ""}`}
+              onClick={() => setAnswers((existing) => ({ ...existing, [current.id]: key }))}
+            >
+              <span className="option-key">{key}</span>
+              <span>{choice.label}</span>
+            </button>
+          ))}
+        </div>
 
-            {deck.pairs.length === 0 ? (
-              <p className="empty-note">No numbered cards found in this folder.</p>
-            ) : (
-              <div className="pair-list">
-                {deck.pairs.map((pair) => (
-                  <article key={pair.key} className="pair-card">
-                    <p className="pair-label">
-                      {pair.role} #{pair.number}
-                    </p>
-                    <img src={pair.src} alt={`${deck.folderName} ${pair.role.toLowerCase()} ${pair.number}`} className="pair-image" />
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        ))}
+        <div className="action-row">
+          <button className="back-btn" onClick={() => setIndex((v) => Math.max(v - 1, 0))} disabled={index === 0}>
+            Previous
+          </button>
+          <button className="tab-btn" onClick={submitCurrentAndGoNext} disabled={!selectedChoice}>
+            {index === questions.length - 1 ? "Show Result" : "Next"}
+          </button>
+        </div>
       </main>
     </div>
   );

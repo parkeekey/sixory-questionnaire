@@ -65,6 +65,10 @@ button {
   text-align: center;
 }
 
+.quiz-card {
+  text-align: left;
+}
+
 .eyebrow {
   margin: 0;
   font-size: 0.72rem;
@@ -88,6 +92,59 @@ button {
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--text-soft);
+}
+
+.progress-text {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  letter-spacing: 0.05em;
+}
+
+.question-title {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.8rem;
+  line-height: 1.2;
+}
+
+.option-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.option-btn {
+  border: 1px solid var(--edge);
+  border-radius: 0.75rem;
+  background: rgba(255, 248, 245, 0.08);
+  color: var(--paper);
+  padding: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: left;
+  min-height: 2.85rem;
+}
+
+.option-btn.selected {
+  background: rgba(255, 248, 245, 0.24);
+}
+
+.option-key {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 9999px;
+  border: 1px solid var(--edge);
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.75rem;
+  flex: 0 0 auto;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
 }
 
 .tab-grid {

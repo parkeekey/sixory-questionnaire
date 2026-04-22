@@ -1,0 +1,22 @@
+{
+  "id": "coffee-quiz",
+  "title": "Coffee Questionnaire",
+  "sections": [
+    {
+      "id": "section-1",
+      "title": "Section Title",
+      "questions": [
+        {
+          "id": "q1",
+          "title": "Question title",
+          "description": "Optional helper text",
+          "type": "single",
+          "required": true,
+          "options": [
+            { "id": "o1", "label": "Option 1", "value": "option-1" }
+          ]
+        }
+      ]
+    }
+  ]
+}
