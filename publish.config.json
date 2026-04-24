@@ -1,6 +1,7 @@
 {
   "remote": "origin",
   "branch": "main",
+  "pullBeforePush": true,
   "buildBeforePush": false,
   "defaultCommitMessage": "chore: sync project updates"
 }

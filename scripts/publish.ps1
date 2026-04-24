@@ -18,6 +18,7 @@ $config = Get-Content $configPath -Raw | ConvertFrom-Json
 $remote = if ($config.remote) { [string]$config.remote } else { "origin" }
 $branch = if ($config.branch) { [string]$config.branch } else { "main" }
 $defaultCommitMessage = if ($config.defaultCommitMessage) { [string]$config.defaultCommitMessage } else { "chore: sync updates" }
+$pullBeforePush = if ($null -ne $config.pullBeforePush) { [bool]$config.pullBeforePush } else { $true }
 
 $doBuild = $false
 if ($BuildBeforePush) {
@@ -52,6 +53,14 @@ if (-not [string]::IsNullOrWhiteSpace($status)) {
   }
 } else {
   Write-Host "No working tree changes to commit."
+}
+
+if ($pullBeforePush) {
+  Write-Host "Pulling latest changes with rebase from $remote/$branch..."
+  git pull --rebase $remote $branch
+  if ($LASTEXITCODE -ne 0) {
+    throw "Pull --rebase failed. Resolve conflicts and retry publish."
+  }
 }
 
 Write-Host "Pushing to $remote/$branch..."
