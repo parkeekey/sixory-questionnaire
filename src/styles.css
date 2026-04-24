@@ -696,6 +696,12 @@ button {
   }
 }
 
+.save-section {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
 .test-page {
   display: flex;
   justify-content: center;

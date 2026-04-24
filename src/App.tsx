@@ -9,6 +9,7 @@ import {
 } from "./quiz/data/schema";
 import effectSettings from "./config/effects.json";
 import MomentOverlay from "./components/MomentOverlay";
+import ShareButtons from "./components/ShareButtons";
 import { useTimeSnapshot } from "./hooks/useTimeSnapshot";
 
 type SectionName = "A" | "B";
@@ -842,6 +843,25 @@ export default function App() {
           <h2 className="gallery-title">{identityLabels[result.identity][lang]} / {stateLabels[result.state][lang]}</h2>
           <LanguageSwitcher lang={lang} onChange={setLang} />
         </header>
+
+        {/* Save buttons - only show on page 2 after password unlock */}
+        {resultPageIndex === 1 && (!isPasswordLockEnabled || isResultUnlocked) && (
+          <div className="save-section">
+            <button 
+              className="tab-btn"
+              onClick={() => {
+                images.forEach((img, index) => {
+                  const link = document.createElement('a');
+                  link.href = img.src;
+                  link.download = `world-of-coffee-card-${index + 1}.png`;
+                  link.click();
+                });
+              }}
+            >
+              Save Cards
+            </button>
+          </div>
+        )}
 
         <main className="gallery-scroll animate-result-fade">
           {devLockReveal ? (
