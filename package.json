@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ship": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/publish.ps1",
+    "ship:build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/publish.ps1 -BuildBeforePush"
   },
   "dependencies": {
     "react": "^18.3.1",
