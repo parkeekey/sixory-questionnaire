@@ -91,8 +91,9 @@
   "devLockEnabled": true,
   "devLockReveal": false,
   "devPassword": "1234",
+  "devRandomResultEnabled": true,
   "resultPasswords": {
-    "feeler_softlight":    "",
+    "feeler_softlight":    "test1234",
     "feeler_drenchedbloom": "",
     "feeler_quietembrance": "",
     "seeker_frozenpath":   "",

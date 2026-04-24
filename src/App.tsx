@@ -57,6 +57,8 @@ const identityOrder: Identity[] = ["Feeler", "Seeker", "Thinker", "Keeper"];
 const stateOrder: EmotionState[] = ["Clear", "Intense", "Quiet"];
 const languageOrder: Lang[] = ["th", "en", "zh"];
 
+const devRandomResultEnabled = (effectSettings as Record<string, unknown>).devRandomResultEnabled as boolean ?? false;
+
 const uiText: Record<
   Lang,
   {
@@ -64,6 +66,8 @@ const uiText: Record<
     menuTitle: string;
     menuCopy: string;
     startQuiz: string;
+    devRandomResult: string;
+    devSecretButton: string;
     backToMenu: string;
     previous: string;
     next: string;
@@ -90,6 +94,8 @@ const uiText: Record<
     menuTitle: "CHOOSE WHO YOU ARE",
     menuCopy: "ตอบคำถาม 7 ข้อ เพื่อหา identity + state และแสดงชุดการ์ดที่ตรงกับคุณ",
     startQuiz: "เริ่มทำแบบทดสอบ",
+    devRandomResult: "ฉันปล่อยให้โชคชะตาตัดสิน",
+    devSecretButton: "ฉันมีความลับจะบอก",
     backToMenu: "กลับไปเมนู",
     previous: "ย้อนกลับ",
     next: "ถัดไป",
@@ -115,6 +121,8 @@ const uiText: Record<
     menuTitle: "CHOOSE WHO YOU ARE",
     menuCopy: "Answer 7 questions to find your identity + state and reveal your matching card set.",
     startQuiz: "Start Quiz",
+    devRandomResult: "I let the fate decide",
+    devSecretButton: "I have a secret to tell you",
     backToMenu: "Back to Menu",
     previous: "Previous",
     next: "Next",
@@ -140,6 +148,8 @@ const uiText: Record<
     menuTitle: "CHOOSE WHO YOU ARE",
     menuCopy: "回答 7 个问题，找出你的 identity + state，并显示对应卡片组合。",
     startQuiz: "开始测试",
+    devRandomResult: "我让命运决定",
+    devSecretButton: "我有一个秘密",
     backToMenu: "返回菜单",
     previous: "上一题",
     next: "下一题",
@@ -461,6 +471,9 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState("");
   const [isResultUnlocked, setIsResultUnlocked] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+  const [showSecretModal, setShowSecretModal] = useState(false);
+  const [secretCode, setSecretCode] = useState("");
+  const [secretError, setSecretError] = useState("");
   const [showReveal, setShowReveal] = useState(false);
   const [revealPhraseIndex, setRevealPhraseIndex] = useState(0);
   const [isRevealPhraseVisible, setIsRevealPhraseVisible] = useState(true);
@@ -776,6 +789,53 @@ export default function App() {
     });
   };
 
+  const handleRandomResult = () => {
+    // Randomly pick identity and state
+    const randomIdentity = identityOrder[Math.floor(Math.random() * identityOrder.length)];
+    const randomState = stateOrder[Math.floor(Math.random() * stateOrder.length)];
+    const assetFolder = questionnaireSpec.mapping.identity_state_to_asset[randomIdentity][randomState];
+    
+    setPendingResult({ identity: randomIdentity, state: randomState, assetFolder });
+    setStarted(true);
+    setShowReveal(true);
+  };
+
+  const handleSecretButton = () => {
+    setShowSecretModal(true);
+  };
+
+  const handleSecretCode = () => {
+    const code = secretCode.trim();
+    
+    // Check if code matches any result password
+    const matchedResult = Object.entries(RESULT_PASSWORDS).find(([_, password]) => password === code);
+    
+    if (matchedResult) {
+      const [assetFolder] = matchedResult;
+      // Find identity and state from asset folder
+      for (const [identity, stateMap] of Object.entries(questionnaireSpec.mapping.identity_state_to_asset)) {
+        for (const [state, folder] of Object.entries(stateMap)) {
+          if (folder === assetFolder) {
+            setPendingResult({ 
+              identity: identity as Identity, 
+              state: state as EmotionState, 
+              assetFolder 
+            });
+            setStarted(true);
+            setShowReveal(true);
+            setShowSecretModal(false);
+            setSecretCode("");
+            setSecretError("");
+            return;
+          }
+        }
+      }
+    }
+    
+    // If no match, show error
+    setSecretError("Invalid code");
+  };
+
   const unlockResult = () => {
     const folderPassword = result ? (RESULT_PASSWORDS[result.assetFolder] || "") : "";
     const expected = folderPassword.trim() !== "" ? folderPassword.trim() : DEV_PASSWORD;
@@ -799,10 +859,54 @@ export default function App() {
           </div>
           <h1 className="menu-title">{t.menuTitle}</h1>
           <p className="menu-copy">{t.menuCopy}</p>
-          <button className="tab-btn" onClick={() => setStarted(true)}>
-            {t.startQuiz}
-          </button>
+          <div className="menu-buttons">
+            <button className="tab-btn" onClick={() => setStarted(true)}>
+              {t.startQuiz}
+            </button>
+            {devRandomResultEnabled && (
+              <>
+                <button className="tab-btn" onClick={handleRandomResult}>
+                  {t.devRandomResult}
+                </button>
+                <button className="tab-btn dev-button" onClick={handleSecretButton}>
+                  {t.devSecretButton}
+                </button>
+              </>
+            )}
+          </div>
         </main>
+        
+        {showSecretModal && (
+          <div className="modal-overlay" onClick={() => setShowSecretModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h3 className="modal-title">Enter Secret Code</h3>
+              <input
+                type="text"
+                className="modal-input"
+                placeholder="Enter your code"
+                value={secretCode}
+                onChange={(e) => {
+                  setSecretCode(e.target.value);
+                  setSecretError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSecretCode();
+                  }
+                }}
+              />
+              {secretError && <p className="modal-error">{secretError}</p>}
+              <div className="modal-buttons">
+                <button className="tab-btn" onClick={() => setShowSecretModal(false)}>
+                  Cancel
+                </button>
+                <button className="tab-btn" onClick={handleSecretCode}>
+                  View Result
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

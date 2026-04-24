@@ -150,10 +150,84 @@ button {
 }
 
 .menu-copy {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.55;
+  margin: 0 0 1.8rem 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
   color: var(--text-soft);
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.dev-button {
+  background: rgba(255, 107, 107, 0.2);
+  border-color: rgba(255, 107, 107, 0.5);
+  color: rgba(255, 200, 200, 0.95);
+}
+
+.dev-button:hover {
+  background: rgba(255, 107, 107, 0.3);
+  border-color: rgba(255, 107, 107, 0.7);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 18, 38, 0.8);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: var(--card);
+  border: 1px solid var(--edge);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 28rem);
+  box-shadow: var(--shadow);
+}
+
+.modal-title {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.modal-input {
+  min-height: 2.7rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--edge);
+  background: rgba(255, 248, 245, 0.08);
+  color: var(--paper);
+  padding: 0.55rem 0.65rem;
+  font-size: 1rem;
+}
+
+.modal-input::placeholder {
+  color: var(--text-soft);
+}
+
+.modal-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #ffd2d2;
+  text-align: center;
+}
+
+.modal-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
 }
 
 .progress-text {
