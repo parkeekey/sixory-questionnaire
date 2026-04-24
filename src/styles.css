@@ -594,3 +594,209 @@ button {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* Moment overlay styling */
+.moment-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(12, 18, 38, 0.15);
+  backdrop-filter: blur(1px);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.moment-title {
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.5rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+  color: rgba(255, 250, 247, 0.95);
+  text-align: center;
+  z-index: 1;
+}
+
+.countdown-display {
+  position: fixed;
+  bottom: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2rem;
+  z-index: 1;
+}
+
+.time-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.time-label {
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 400;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 250, 247, 0.95);
+  margin-bottom: 0.5rem;
+}
+
+.time-digit {
+  font-family: 'Manrope', monospace;
+  font-size: 2.5rem;
+  font-weight: 600;
+  color: rgba(255, 250, 247, 0.95);
+  line-height: 1;
+  min-width: 3ch;
+  text-align: center;
+}
+
+.date-display {
+  position: fixed;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Manrope', monospace;
+  font-size: 1rem;
+  font-weight: 400;
+  opacity: 0.7;
+  letter-spacing: 0.05em;
+  color: rgba(255, 250, 247, 0.95);
+  text-align: center;
+  z-index: 1;
+}
+
+.date-value {
+  display: inline-block;
+  min-width: 3ch;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .moment-title {
+    font-size: 2rem;
+    margin-bottom: 2.5rem;
+  }
+  
+  .countdown-display {
+    font-size: 1rem;
+  }
+  
+  .date-display {
+    font-size: 0.9rem;
+  }
+}
+
+.test-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 400px;
+}
+
+.test-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 3rem;
+  font-weight: 600;
+  color: var(--text-main);
+  opacity: 0.8;
+}
+
+.moment-overlay-inside {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  padding: 2rem;
+  text-align: center;
+  min-width: 300px;
+}
+
+.moment-title-small {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+  color: rgba(255, 250, 247, 0.95);
+  margin: 0 0 1.5rem 0;
+}
+
+.countdown-display-small {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.time-unit-small {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.time-label-small {
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 250, 247, 0.95);
+  margin-bottom: 0.3rem;
+}
+
+.time-digit-small {
+  font-family: 'Manrope', monospace;
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: rgba(255, 250, 247, 0.95);
+  line-height: 1;
+  min-width: 2ch;
+  text-align: center;
+}
+
+.date-display-small {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.date-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.date-label-small {
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 250, 247, 0.95);
+  margin-bottom: 0.3rem;
+}
+
+.date-digit-small {
+  font-family: 'Manrope', monospace;
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: rgba(255, 250, 247, 0.95);
+  line-height: 1;
+  min-width: 3ch;
+  text-align: center;
+}

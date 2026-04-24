@@ -15,6 +15,11 @@
   "revealBgDelayMs": 2000,
   "revealResultBgDelayMs": 2000,
   "resultFadeDurationMs": 2000,
+  "thisIsYourMomentByLang": {
+    "en": "This is your moment",
+    "th": "นี่คือช่วงเวลาของคุณ",
+    "zh": "这是你的时刻"
+  },
   "revealPhrasesByLang": {
     "en": [
       "...there's something about the way you choose...",

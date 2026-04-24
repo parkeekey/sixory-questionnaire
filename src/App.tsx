@@ -8,6 +8,8 @@ import {
   type Question
 } from "./quiz/data/schema";
 import effectSettings from "./config/effects.json";
+import MomentOverlay from "./components/MomentOverlay";
+import { useTimeSnapshot } from "./hooks/useTimeSnapshot";
 
 type SectionName = "A" | "B";
 type Lang = "th" | "en" | "zh";
@@ -36,18 +38,18 @@ const LEGACY_IMAGE_MODULES = import.meta.glob("../Assets/**/*.{png,jpg,jpeg,webp
 }) as Record<string, string>;
 
 const RESULT_PAGE_MAP: Record<string, number[]> = {
-  feeler_softlight: [1, 2],
-  seeker_burningHorz: [3, 4],
-  thinker_quiteillu: [5, 6],
-  keeper_solarground: [7, 8],
-  feeler_drenchedbloom: [10, 11],
-  seeker_stormseeker: [12, 13],
-  thinker_innerstorm: [14, 15],
-  keeper_stedyrain: [16, 17],
-  feeler_quietembrance: [19, 20],
-  seeker_frozenpath: [21, 22],
-  thinker_deepstillness: [23, 24],
-  keeper_innerfire: [25, 26]
+  feeler_softlight: [1, 2, 3],
+  seeker_burningHorz: [3, 4, 5],
+  thinker_quiteillu: [5, 6, 7],
+  keeper_solarground: [7, 8, 9],
+  feeler_drenchedbloom: [10, 11, 12],
+  seeker_stormseeker: [12, 13, 14],
+  thinker_innerstorm: [14, 15, 16],
+  keeper_stedyrain: [16, 17, 18],
+  feeler_quietembrance: [19, 20, 21],
+  seeker_frozenpath: [21, 22, 23],
+  thinker_deepstillness: [23, 24, 25],
+  keeper_innerfire: [25, 26, 27]
 };
 
 const identityOrder: Identity[] = ["Feeler", "Seeker", "Thinker", "Keeper"];
@@ -487,10 +489,27 @@ export default function App() {
       | undefined;
     const langPhrases = byLang?.[lang];
     if (Array.isArray(langPhrases) && langPhrases.length > 0) {
-      return langPhrases;
+      // Create a shuffled copy of the phrases
+      const shuffled = [...langPhrases];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
     }
 
     return ["...it's starting to make sense..."];
+  }, [lang]);
+
+  // Use time snapshot hook
+  const { currentTime, currentDate } = useTimeSnapshot();
+
+  // Get "This is your moment" text based on language
+  const thisIsYourMomentText = useMemo(() => {
+    const byLang = effectSettings.thisIsYourMomentByLang as
+      | Partial<Record<Lang, string>>
+      | undefined;
+    return byLang?.[lang] || "This is your moment";
   }, [lang]);
 
   const crossFadeBg = useCallback(
@@ -797,7 +816,8 @@ export default function App() {
 
     const turnPage = (direction: "next" | "prev") => {
       if (flipPhase !== "idle") return;
-      if (direction === "next" && resultPageIndex >= images.length - 1) return;
+      // Allow up to 3 pages (0, 1, 2) even if no image files exist for page 3
+      if (direction === "next" && resultPageIndex >= 2) return;
       if (direction === "prev" && resultPageIndex <= 0) return;
 
       setFlipDirection(direction);
@@ -854,7 +874,16 @@ export default function App() {
                     className="pair-image"
                   />
                 ) : (
-                  <p className="empty-note">{t.noImages}</p>
+                  <div className="test-page">
+                    {/* Moment overlay inside test page - only show on page 3 */}
+                    {resultPageIndex === 2 && (
+                      <MomentOverlay 
+                        lang={lang}
+                        currentTime={currentTime}
+                        currentDate={currentDate}
+                      />
+                    )}
+                  </div>
                 )}
                 {isLockedPageTwo && activeImage ? (
                   <div className="lock-overlay">
@@ -888,11 +917,11 @@ export default function App() {
                 <button className="back-btn" onClick={() => turnPage("prev")} disabled={flipPhase !== "idle" || resultPageIndex === 0}>
                   {t.previous}
                 </button>
-                <p className="progress-text">{resultPageIndex + 1}/{images.length}</p>
+                <p className="progress-text">{resultPageIndex + 1}/3</p>
                 <button
                   className="tab-btn"
                   onClick={() => turnPage("next")}
-                  disabled={flipPhase !== "idle" || resultPageIndex >= images.length - 1}
+                  disabled={flipPhase !== "idle" || resultPageIndex >= 2}
                 >
                   {t.next}
                 </button>
@@ -913,6 +942,30 @@ export default function App() {
           <p className={`reveal-line${isRevealPhraseVisible ? " visible" : ""}`}>
             {revealPhrases[revealPhraseIndex]}
           </p>
+        </div>
+        
+        {/* Moment overlay */}
+        <div className="moment-overlay">
+          <h2 className="moment-title">{thisIsYourMomentText}</h2>
+          <div className="countdown-display">
+            <div className="time-unit">
+              <div className="time-label">hr</div>
+              <div className="time-digit">{String(currentTime.hours).padStart(2, '0')}</div>
+            </div>
+            <div className="time-unit">
+              <div className="time-label">min</div>
+              <div className="time-digit">{String(currentTime.minutes).padStart(2, '0')}</div>
+            </div>
+            <div className="time-unit">
+              <div className="time-label">sec</div>
+              <div className="time-digit">{String(currentTime.seconds).padStart(2, '0')}</div>
+            </div>
+          </div>
+          <div className="date-display">
+            <span className="date-value">{String(currentDate.day).padStart(2, '0')}</span> 
+            <span className="date-value">{String(currentDate.month).padStart(2, '0')}</span> 
+            <span className="date-value">{String(currentDate.year).padStart(4, '0')}</span>
+          </div>
         </div>
       </div>
     );
