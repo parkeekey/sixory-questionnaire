@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   questionnaireSpec,
   type Choice,
@@ -6,10 +7,12 @@ import {
   type Identity,
   type Question
 } from "./quiz/data/schema";
+import effectSettings from "./config/effects.json";
 
 type SectionName = "A" | "B";
 type Lang = "th" | "en" | "zh";
-const DEV_PASSWORD = "1234";
+const DEV_PASSWORD = (effectSettings as Record<string, unknown>).devPassword as string | undefined ?? "1234";
+const RESULT_PASSWORDS = (effectSettings as Record<string, unknown>).resultPasswords as Record<string, string> | undefined ?? {};
 
 interface FlatQuestion extends Question {
   section: SectionName;
@@ -22,10 +25,30 @@ interface ResultImage {
   role: "Title" | "Explanation";
 }
 
-const IMAGE_MODULES = import.meta.glob("../Assets/**/*.{png,jpg,jpeg,webp}", {
+const IMAGE_MODULES = import.meta.glob("../local/assetv2/*.{png,jpg,jpeg,webp}", {
   eager: true,
   import: "default"
 }) as Record<string, string>;
+
+const LEGACY_IMAGE_MODULES = import.meta.glob("../Assets/**/*.{png,jpg,jpeg,webp}", {
+  eager: true,
+  import: "default"
+}) as Record<string, string>;
+
+const RESULT_PAGE_MAP: Record<string, number[]> = {
+  feeler_softlight: [1, 2],
+  seeker_burningHorz: [3, 4],
+  thinker_quiteillu: [5, 6],
+  keeper_solarground: [7, 8],
+  feeler_drenchedbloom: [10, 11],
+  seeker_stormseeker: [12, 13],
+  thinker_innerstorm: [14, 15],
+  keeper_stedyrain: [16, 17],
+  feeler_quietembrance: [19, 20],
+  seeker_frozenpath: [21, 22],
+  thinker_deepstillness: [23, 24],
+  keeper_innerfire: [25, 26]
+};
 
 const identityOrder: Identity[] = ["Feeler", "Seeker", "Thinker", "Keeper"];
 const stateOrder: EmotionState[] = ["Clear", "Intense", "Quiet"];
@@ -236,26 +259,55 @@ function flattenQuestions(): FlatQuestion[] {
 }
 
 function buildFolderImages(): Record<string, ResultImage[]> {
-  const map: Record<string, { number: number; src: string }[]> = {};
+  const pageMap = new Map<number, string>();
 
   for (const [path, src] of Object.entries(IMAGE_MODULES)) {
-    const match = path.match(/\.\.\/Assets\/[^/]+\/([^/]+)\/([^/]+)$/);
+    const match = path.match(/page_(\d+)\.[^.]+$/i);
     if (!match) continue;
 
-    const [, folderName, fileName] = match;
-    const numberMatch = fileName.match(/(\d+)/);
-    if (!numberMatch) continue;
+    pageMap.set(Number(match[1]), src);
+  }
 
-    map[folderName] ??= [];
-    map[folderName].push({ number: Number(numberMatch[1]), src });
+  if (pageMap.size === 0) {
+    const legacyGrouped = new Map<string, Array<{ number: number; src: string }>>();
+
+    for (const [path, src] of Object.entries(LEGACY_IMAGE_MODULES)) {
+      const folderMatch = path.match(/\/Assets\/[^/]+\/([^/]+)\//i);
+      const pageMatch = path.match(/page_(\d+)\.[^.]+$/i);
+      if (!folderMatch || !pageMatch) continue;
+
+      const folder = folderMatch[1];
+      const number = Number(pageMatch[1]);
+      const existing = legacyGrouped.get(folder) ?? [];
+      existing.push({ number, src });
+      legacyGrouped.set(folder, existing);
+    }
+
+    const legacyOut: Record<string, ResultImage[]> = {};
+    for (const [folder, files] of legacyGrouped.entries()) {
+      const sorted = files.sort((a, b) => a.number - b.number);
+      legacyOut[folder] = sorted.map((f, i) => ({
+        number: f.number,
+        src: f.src,
+        pageIndex: i + 1,
+        role: i % 2 === 0 ? "Title" : "Explanation"
+      }));
+    }
+
+    return legacyOut;
   }
 
   const out: Record<string, ResultImage[]> = {};
-  for (const [folder, files] of Object.entries(map)) {
-    out[folder] = files
-      .sort((a, b) => a.number - b.number)
+  for (const [folder, pages] of Object.entries(RESULT_PAGE_MAP)) {
+    out[folder] = pages
+      .map((number) => {
+        const src = pageMap.get(number);
+        return src ? { number, src } : null;
+      })
+      .filter((file): file is { number: number; src: string } => file !== null)
       .map((f, i) => ({
-        ...f,
+        number: f.number,
+        src: f.src,
         pageIndex: i + 1,
         role: i % 2 === 0 ? "Title" : "Explanation"
       }));
@@ -345,18 +397,6 @@ async function extractColor(src: string): Promise<string> {
   });
 }
 
-function applyBgColor(color: string): void {
-  document.documentElement.style.setProperty("--extracted-bg", color);
-  const rgb = color.match(/\d+/g);
-  if (!rgb) return;
-
-  const [r, g, b] = rgb.map(Number);
-  document.documentElement.style.setProperty(
-    "--extracted-bg-deep",
-    `rgb(${Math.round(r * 0.82)},${Math.round(g * 0.82)},${Math.round(b * 0.82)})`
-  );
-}
-
 function choiceEntries(choices: Record<string, Choice>): Array<[string, Choice]> {
   return Object.entries(choices);
 }
@@ -394,25 +434,125 @@ function LanguageSwitcher({ lang, onChange }: { lang: Lang; onChange: (next: Lan
 export default function App() {
   const questions = useMemo(() => flattenQuestions(), []);
   const folderImages = useMemo(() => buildFolderImages(), []);
+  const questionnaireBgColor = effectSettings.questionnaireBgColor ?? "rgb(201,131,122)";
+  const questionnaireBgDeepColor = effectSettings.questionnaireBgDeepColor ?? "rgb(177,115,107)";
+  const revealTotalDurationMs = effectSettings.revealTotalDurationMs ?? 7800;
+  const revealPhraseDurationMs = effectSettings.revealPhraseDurationMs ?? 2400;
+  const revealPhraseFadeMs = effectSettings.revealPhraseFadeMs ?? 900;
+  const revealBgColor = effectSettings.revealBgColor ?? "rgb(176,120,109)";
+  const revealBgDeepColor = effectSettings.revealBgDeepColor;
+  const revealBgDelayMs = effectSettings.revealBgDelayMs ?? 0;
+  const revealResultBgDelayMs = effectSettings.revealResultBgDelayMs ?? 2000;
+  const resultFadeDurationMs = effectSettings.resultFadeDurationMs ?? 900;
+  const resultBook = (effectSettings as Record<string, unknown>).resultBook as Record<string, unknown> | undefined;
+  const bookFlipDurationMs = Number(resultBook?.flipDurationMs ?? 650);
+  const colorTransitionDurationMs = effectSettings.colorTransition.duration;
+  const colorTransitionEasing = effectSettings.colorTransition.easing;
+  const devLockReveal = (effectSettings as Record<string, unknown>).devLockReveal !== false;
 
   const [lang, setLang] = useState<Lang>("th");
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [isPasswordLockEnabled, setIsPasswordLockEnabled] = useState(true);
+  const [isPasswordLockEnabled, setIsPasswordLockEnabled] = useState(effectSettings.devLockEnabled ?? true);
   const [passwordInput, setPasswordInput] = useState("");
   const [isResultUnlocked, setIsResultUnlocked] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+  const [showReveal, setShowReveal] = useState(false);
+  const [revealPhraseIndex, setRevealPhraseIndex] = useState(0);
+  const [isRevealPhraseVisible, setIsRevealPhraseVisible] = useState(true);
+  const [questionPhase, setQuestionPhase] = useState<"idle" | "out" | "in">("idle");
+  const [questionDirection, setQuestionDirection] = useState<"next" | "prev">("next");
+  const [resultPageIndex, setResultPageIndex] = useState(0);
+  const [flipDirection, setFlipDirection] = useState<"next" | "prev">("next");
+  const [flipPhase, setFlipPhase] = useState<"idle" | "out" | "in">("idle");
+  const [baseBg, setBaseBg] = useState({ color: questionnaireBgColor, deep: questionnaireBgDeepColor, gradient: false });
+  const [overlayBg, setOverlayBg] = useState({ color: questionnaireBgColor, deep: questionnaireBgDeepColor, gradient: false });
+  const [overlayOpacity, setOverlayOpacity] = useState(0);
+  const [overlayHasTransition, setOverlayHasTransition] = useState(false);
+  const [pendingResult, setPendingResult] = useState<{
+    identity: Identity;
+    state: EmotionState;
+    assetFolder: string;
+  } | null>(null);
   const [result, setResult] = useState<{
     identity: Identity;
     state: EmotionState;
     assetFolder: string;
   } | null>(null);
 
+  const revealPhrases = useMemo(() => {
+    const byLang = effectSettings.revealPhrasesByLang as
+      | Partial<Record<Lang, string[]>>
+      | undefined;
+    const langPhrases = byLang?.[lang];
+    if (Array.isArray(langPhrases) && langPhrases.length > 0) {
+      return langPhrases;
+    }
+
+    return ["...it's starting to make sense..."];
+  }, [lang]);
+
+  const crossFadeBg = useCallback(
+    (color: string, deepColor?: string, gradient = true) => {
+      const deep =
+        deepColor ??
+        (() => {
+          const rgb = color.match(/\d+/g);
+          if (!rgb) return color;
+          const [r, g, b] = rgb.map(Number);
+          return `rgb(${Math.round(r * 0.82)},${Math.round(g * 0.82)},${Math.round(b * 0.82)})`;
+        })();
+      setOverlayBg({ color, deep, gradient });
+      setOverlayHasTransition(false);
+      setOverlayOpacity(0);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          setOverlayHasTransition(true);
+          setOverlayOpacity(1);
+        });
+      });
+      window.setTimeout(() => {
+        setBaseBg({ color, deep, gradient });
+        setOverlayHasTransition(false);
+        setOverlayOpacity(0);
+      }, colorTransitionDurationMs + 50);
+    },
+    [colorTransitionDurationMs]
+  );
+
+  const bgValue = (c: { color: string; deep: string; gradient: boolean }) =>
+    c.gradient
+      ? `radial-gradient(circle at top right, rgba(255,255,255,0.1), transparent 30%), linear-gradient(180deg, ${c.color}, ${c.color} 48%, ${c.deep})`
+      : c.color;
+
+  const bgPortal = createPortal(
+    <>
+      <div className="bg-layer" style={{ background: bgValue(baseBg) }} />
+      <div
+        className="bg-layer"
+        style={{
+          background: bgValue(overlayBg),
+          opacity: overlayOpacity,
+          transition: overlayHasTransition
+            ? `opacity ${colorTransitionDurationMs}ms ${colorTransitionEasing}`
+            : "none",
+        }}
+      />
+    </>,
+    document.body
+  );
+
   const current = questions[index];
   const selectedChoice = current ? answers[current.id] : undefined;
   const progress = Math.round(((index + 1) / Math.max(questions.length, 1)) * 100);
   const t = uiText[lang];
+  const questionTransitionClass =
+    questionPhase === "idle"
+      ? "book-page"
+      : questionPhase === "out"
+        ? `book-page is-flipping flip-out ${questionDirection === "next" ? "flip-next" : "flip-prev"} transition-lock`
+        : `book-page is-flipping flip-in ${questionDirection === "next" ? "flip-next" : "flip-prev"} transition-lock`;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("quiz-lang");
@@ -426,29 +566,148 @@ export default function App() {
   }, [lang]);
 
   useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--fx-bg-duration", `${effectSettings.backgroundTransitionMs}ms`);
+    root.style.setProperty("--fx-rise-duration", `${effectSettings.riseDurationMs}ms`);
+    root.style.setProperty("--fx-slide-duration", `${effectSettings.slideDurationMs}ms`);
+    root.style.setProperty("--fx-rise-offset", `${effectSettings.riseOffsetPx}px`);
+    root.style.setProperty("--fx-slide-offset", `${effectSettings.slideOffsetPx}px`);
+    root.style.setProperty("--fx-ease", effectSettings.easing);
+    root.style.setProperty("--fx-reveal-fade-duration", `${revealPhraseFadeMs}ms`);
+    root.style.setProperty("--fx-result-fade-duration", `${resultFadeDurationMs}ms`);
+    root.style.setProperty("--fx-book-duration", `${bookFlipDurationMs}ms`);
+    root.style.setProperty("--fx-book-half-duration", `${Math.max(120, Math.floor(bookFlipDurationMs / 2))}ms`);
+    root.style.setProperty("--fx-book-easing", (resultBook?.flipEasing as string | undefined) ?? "cubic-bezier(0.22, 1, 0.36, 1)");
+    root.style.setProperty("--fx-book-perspective", `${resultBook?.perspectivePx ?? 1200}px`);
+  }, [
+    bookFlipDurationMs,
+    resultBook,
+    resultFadeDurationMs,
+    revealPhraseFadeMs
+  ]);
+
+  useEffect(() => {
+    setResultPageIndex(0);
+    setFlipPhase("idle");
+    setFlipDirection("next");
+  }, [result?.assetFolder]);
+
+  useEffect(() => {
+    if (showReveal || result) return;
+    crossFadeBg(questionnaireBgColor, questionnaireBgDeepColor, true);
+  }, [crossFadeBg, questionnaireBgColor, questionnaireBgDeepColor, result, showReveal]);
+
+  useEffect(() => {
+    if (!showReveal || !pendingResult) return;
+
+    const revealBgTimer = window.setTimeout(() => {
+      crossFadeBg(revealBgColor, revealBgDeepColor, true);
+    }, revealBgDelayMs);
+
+    const firstResultImage = folderImages[pendingResult.assetFolder]?.[0]?.src;
+    if (!firstResultImage) {
+      return () => {
+        window.clearTimeout(revealBgTimer);
+      };
+    }
+
+    const bgDelayTimer = window.setTimeout(() => {
+      extractColor(firstResultImage).then((c) => {
+        crossFadeBg(c || revealBgColor, revealBgDeepColor, true);
+      });
+    }, revealResultBgDelayMs);
+
+    return () => {
+      window.clearTimeout(revealBgTimer);
+      window.clearTimeout(bgDelayTimer);
+    };
+  }, [
+    crossFadeBg,
+    folderImages,
+    pendingResult,
+    revealBgColor,
+    revealBgDeepColor,
+    revealBgDelayMs,
+    revealResultBgDelayMs,
+    showReveal
+  ]);
+
+  useEffect(() => {
+    if (!showReveal || !pendingResult) return;
+
+    setRevealPhraseIndex(0);
+    setIsRevealPhraseVisible(true);
+
+    const phraseFlipDelay = Math.max(250, Math.floor(revealPhraseFadeMs * 0.45));
+
+    const phraseTimer = window.setInterval(() => {
+      setIsRevealPhraseVisible(false);
+      window.setTimeout(() => {
+        setRevealPhraseIndex((value) => (value + 1) % revealPhrases.length);
+        setIsRevealPhraseVisible(true);
+      }, phraseFlipDelay);
+    }, revealPhraseDurationMs);
+
+    const finishTimer = window.setTimeout(() => {
+      window.clearInterval(phraseTimer);
+      setIsRevealPhraseVisible(false);
+      window.setTimeout(() => {
+        setResult(pendingResult);
+        setPendingResult(null);
+        setShowReveal(false);
+      }, phraseFlipDelay);
+    }, revealTotalDurationMs);
+
+    return () => {
+      window.clearInterval(phraseTimer);
+      window.clearTimeout(finishTimer);
+    };
+  }, [
+    pendingResult,
+    revealPhraseDurationMs,
+    revealPhraseFadeMs,
+    revealPhrases.length,
+    revealTotalDurationMs,
+    showReveal
+  ]);
+
+  useEffect(() => {
+    if (!result) return;
+
     const firstResultImage = result ? folderImages[result.assetFolder]?.[0]?.src : undefined;
     if (!firstResultImage) {
-      applyBgColor("rgb(201,131,122)");
+      crossFadeBg(revealBgColor, revealBgDeepColor, false);
       return;
     }
 
     extractColor(firstResultImage).then((c) => {
-      applyBgColor(c || "rgb(201,131,122)");
+      crossFadeBg(c || revealBgColor, revealBgDeepColor, false);
     });
-  }, [result, folderImages]);
+  }, [crossFadeBg, folderImages, result, revealBgColor, revealBgDeepColor]);
 
   const submitCurrentAndGoNext = () => {
     if (!current || !selectedChoice) return;
 
     if (index < questions.length - 1) {
-      setIndex((v) => v + 1);
+      if (questionPhase !== "idle") return;
+      const half = Math.max(120, Math.floor(bookFlipDurationMs / 2));
+      setQuestionDirection("next");
+      setQuestionPhase("out");
+      window.setTimeout(() => {
+        setIndex((v) => v + 1);
+        setQuestionPhase("in");
+        window.setTimeout(() => {
+          setQuestionPhase("idle");
+        }, half);
+      }, half);
       return;
     }
 
     const identity = pickTopIdentity(answers, questions);
     const state = pickTopState(answers, questions);
     const assetFolder = questionnaireSpec.mapping.identity_state_to_asset[identity][state];
-    setResult({ identity, state, assetFolder });
+    setPendingResult({ identity, state, assetFolder });
+    setShowReveal(true);
   };
 
   const restart = () => {
@@ -459,6 +718,31 @@ export default function App() {
     setPasswordInput("");
     setIsResultUnlocked(false);
     setPasswordError("");
+    setPendingResult(null);
+    setShowReveal(false);
+    setRevealPhraseIndex(0);
+    setIsRevealPhraseVisible(true);
+    setQuestionPhase("idle");
+    setQuestionDirection("next");
+    setResultPageIndex(0);
+    setFlipPhase("idle");
+    setFlipDirection("next");
+  };
+
+  const goToPreviousQuestion = () => {
+    if (questionPhase !== "idle") return;
+    if (index === 0) return;
+
+    const half = Math.max(120, Math.floor(bookFlipDurationMs / 2));
+    setQuestionDirection("prev");
+    setQuestionPhase("out");
+    window.setTimeout(() => {
+      setIndex((v) => Math.max(v - 1, 0));
+      setQuestionPhase("in");
+      window.setTimeout(() => {
+        setQuestionPhase("idle");
+      }, half);
+    }, half);
   };
 
   const toggleDevLock = () => {
@@ -473,7 +757,9 @@ export default function App() {
   };
 
   const unlockResult = () => {
-    if (passwordInput.trim() === DEV_PASSWORD) {
+    const folderPassword = result ? (RESULT_PASSWORDS[result.assetFolder] || "") : "";
+    const expected = folderPassword.trim() !== "" ? folderPassword.trim() : DEV_PASSWORD;
+    if (passwordInput.trim() === expected) {
       setIsResultUnlocked(true);
       setPasswordError("");
       return;
@@ -485,6 +771,7 @@ export default function App() {
   if (!started) {
     return (
       <div className="app-root menu-root">
+        {bgPortal}
         <main className="menu-card animate-rise">
           <div className="menu-top">
             <p className="eyebrow">{t.appEyebrow}</p>
@@ -503,8 +790,31 @@ export default function App() {
   if (result) {
     const images = folderImages[result.assetFolder] ?? [];
     const firstLockedPageTwoNumber = images.find((img) => img.pageIndex === 2)?.number;
+    const activeImage = images[resultPageIndex];
+    const isLockedPageTwo = Boolean(
+      activeImage && isPasswordLockEnabled && !isResultUnlocked && activeImage.pageIndex === 2
+    );
+
+    const turnPage = (direction: "next" | "prev") => {
+      if (flipPhase !== "idle") return;
+      if (direction === "next" && resultPageIndex >= images.length - 1) return;
+      if (direction === "prev" && resultPageIndex <= 0) return;
+
+      setFlipDirection(direction);
+      setFlipPhase("out");
+      const half = Math.max(120, Math.floor(bookFlipDurationMs / 2));
+      window.setTimeout(() => {
+        setResultPageIndex((value) => value + (direction === "next" ? 1 : -1));
+        setFlipPhase("in");
+        window.setTimeout(() => {
+          setFlipPhase("idle");
+        }, half);
+      }, half);
+    };
+
     return (
       <div className="app-root">
+        {bgPortal}
         <header className="gallery-header">
           <button className="back-btn" onClick={restart}>
             {t.backToMenu}
@@ -513,77 +823,106 @@ export default function App() {
           <LanguageSwitcher lang={lang} onChange={setLang} />
         </header>
 
-        <main className="gallery-scroll">
-          <section className="folder-block">
-            <h3 className="folder-title">{t.resultAsset}: {result.assetFolder}</h3>
+        <main className="gallery-scroll animate-result-fade">
+          {devLockReveal ? (
+          <div className="dev-lock-panel result-dev-lock">
+            <button className="back-btn" onClick={toggleDevLock}>
+              {isPasswordLockEnabled ? t.devLockOn : t.devLockOff}
+            </button>
 
-            <div className="dev-lock-panel">
-              <button className="back-btn" onClick={toggleDevLock}>
-                {isPasswordLockEnabled ? t.devLockOn : t.devLockOff}
-              </button>
+            {isPasswordLockEnabled ? (
+              <p className="empty-note">
+                {isResultUnlocked ? t.unlocked : t.lockedHint}
+              </p>
+            ) : null}
+            {passwordError ? <p className="password-error">{passwordError}</p> : null}
+          </div>
+          ) : null}
 
-              {isPasswordLockEnabled ? (
-                <p className="empty-note">
-                  {isResultUnlocked ? t.unlocked : t.lockedHint}
-                </p>
-              ) : null}
-              {passwordError ? <p className="password-error">{passwordError}</p> : null}
-            </div>
-
-            {images.length === 0 ? (
-              <p className="empty-note">{t.noImages}</p>
-            ) : (
-              <div className="pair-list">
-                {images.map((img) => {
-                  const isLockedPageTwo = isPasswordLockEnabled && !isResultUnlocked && img.pageIndex === 2;
-
-                  return (
-                    <article
-                      key={`${result.assetFolder}-${img.number}`}
-                      className={`pair-card${isLockedPageTwo ? " locked" : ""}`}
-                    >
-                      <p className="pair-label">{img.role === "Title" ? t.titleRole : t.explanationRole} #{img.number}</p>
-                      <img src={img.src} alt={`${result.assetFolder} ${img.role.toLowerCase()} ${img.number}`} className="pair-image" />
-                      {isLockedPageTwo ? (
-                        <div className="lock-overlay">
-                          {img.number === firstLockedPageTwoNumber ? (
-                            <div className="lock-overlay-inner">
-                              <p className="lock-overlay-text">{t.lockedHint}</p>
-                              <div className="dev-lock-controls">
-                                <input
-                                  className="dev-password-input"
-                                  type="password"
-                                  value={passwordInput}
-                                  onChange={(event) => setPasswordInput(event.target.value)}
-                                  placeholder={t.passwordPlaceholder}
-                                />
-                                <button className="tab-btn" onClick={unlockResult}>
-                                  {t.unlock}
-                                </button>
-                              </div>
-                              {passwordError ? <p className="password-error">{passwordError}</p> : null}
-                            </div>
-                          ) : (
-                            <div className="lock-overlay-inner">
-                              <p className="lock-overlay-text">{t.lockedHint}</p>
-                            </div>
-                          )}
+          {images.length === 0 ? (
+            <p className="empty-note">{t.noImages}</p>
+          ) : (
+            <div className="book-stage">
+              <article
+                key={`${result.assetFolder}-${activeImage?.number ?? "empty"}`}
+                className={`pair-card book-page${isLockedPageTwo ? " locked" : ""}${flipPhase !== "idle" ? ` is-flipping ${flipPhase === "out" ? "flip-out" : "flip-in"} ${flipDirection === "next" ? "flip-next" : "flip-prev"}` : ""}`}
+              >
+                {activeImage ? (
+                  <img
+                    src={activeImage.src}
+                    alt={`${result.assetFolder} ${activeImage.role.toLowerCase()} ${activeImage.number}`}
+                    className="pair-image"
+                  />
+                ) : (
+                  <p className="empty-note">{t.noImages}</p>
+                )}
+                {isLockedPageTwo && activeImage ? (
+                  <div className="lock-overlay">
+                    {activeImage.number === firstLockedPageTwoNumber ? (
+                      <div className="lock-overlay-inner">
+                        <p className="lock-overlay-text">{t.lockedHint}</p>
+                        <div className="dev-lock-controls">
+                          <input
+                            className="dev-password-input"
+                            type="password"
+                            value={passwordInput}
+                            onChange={(event) => setPasswordInput(event.target.value)}
+                            placeholder={t.passwordPlaceholder}
+                          />
+                          <button className="tab-btn" onClick={unlockResult}>
+                            {t.unlock}
+                          </button>
                         </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
+                        {passwordError ? <p className="password-error">{passwordError}</p> : null}
+                      </div>
+                    ) : (
+                      <div className="lock-overlay-inner">
+                        <p className="lock-overlay-text">{t.lockedHint}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </article>
+
+              <div className="book-controls">
+                <button className="back-btn" onClick={() => turnPage("prev")} disabled={flipPhase !== "idle" || resultPageIndex === 0}>
+                  {t.previous}
+                </button>
+                <p className="progress-text">{resultPageIndex + 1}/{images.length}</p>
+                <button
+                  className="tab-btn"
+                  onClick={() => turnPage("next")}
+                  disabled={flipPhase !== "idle" || resultPageIndex >= images.length - 1}
+                >
+                  {t.next}
+                </button>
               </div>
-            )}
-          </section>
+            </div>
+          )}
         </main>
+      </div>
+    );
+  }
+
+  if (showReveal && pendingResult) {
+    return (
+      <div className="app-root reveal-root animate-rise">
+        {bgPortal}
+        <div className="reveal-panel">
+          <div className="loading-ring" aria-hidden="true" />
+          <p className={`reveal-line${isRevealPhraseVisible ? " visible" : ""}`}>
+            {revealPhrases[revealPhraseIndex]}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="app-root menu-root">
-      <main className="menu-card animate-rise quiz-card">
+      {bgPortal}
+      <main className="menu-card quiz-card">
+        <div key={`${current.id}-${index}`} className={`quiz-step ${questionTransitionClass}`}>
         <div className="menu-top">
           <p className="eyebrow">
             {current.section === "A" ? t.sectionA : t.sectionB}
@@ -607,12 +946,13 @@ export default function App() {
         </div>
 
         <div className="action-row">
-          <button className="back-btn" onClick={() => setIndex((v) => Math.max(v - 1, 0))} disabled={index === 0}>
+          <button className="back-btn" onClick={goToPreviousQuestion} disabled={index === 0 || questionPhase !== "idle"}>
             {t.previous}
           </button>
-          <button className="tab-btn" onClick={submitCurrentAndGoNext} disabled={!selectedChoice}>
+          <button className="tab-btn" onClick={submitCurrentAndGoNext} disabled={!selectedChoice || questionPhase !== "idle"}>
             {index === questions.length - 1 ? t.showResult : t.next}
           </button>
+        </div>
         </div>
       </main>
     </div>
