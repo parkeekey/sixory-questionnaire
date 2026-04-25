@@ -92,6 +92,7 @@
   "devLockReveal": false,
   "devPassword": "1234",
   "devRandomResultEnabled": true,
+  "socialLinkUrl": "https://www.instagram.com/sixorycoffee/",
   "resultPasswords": {
     "feeler_softlight":    "test1234",
     "feeler_drenchedbloom": "",
