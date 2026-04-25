@@ -1,0 +1,36 @@
+{
+  "type": "partners",
+  "description": "Shows company logo and social links",
+  "showSaveMoment": false,
+  "showCompanyLinks": true,
+  "companies": [
+    {
+      "name": "Sixory Coffee",
+      "logo": "sixoLogo",
+      "socialLinks": [
+        {
+          "platform": "Instagram",
+          "url": "https://www.instagram.com/sixorycoffee/"
+        },
+        {
+          "platform": "Facebook",
+          "url": "https://www.facebook.com/sixorycoffee"
+        }
+      ]
+    },
+    {
+      "name": "Hacking Coffee Roasters",
+      "logo": "hackingLogo",
+      "socialLinks": [
+        {
+          "platform": "Facebook",
+          "url": "https://www.facebook.com/Hacking.Coffee/"
+        },
+        {
+          "platform": "Instagram",
+          "url": "https://www.instagram.com/hackingcoffeeroasters/"
+        }
+      ]
+    }
+  ]
+}

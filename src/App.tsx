@@ -18,12 +18,22 @@ import {
 
 import effectSettings from "./config/effects.json";
 
+import identityCardConfig from "./config/page-configs/identity-card.json";
+
+import stateCardConfig from "./config/page-configs/state-card.json";
+
+import momentRevealConfig from "./config/page-configs/moment-reveal.json";
+
+import companyPartnersConfig from "./config/page-configs/company-partners.json";
+
 import MomentOverlay from "./components/MomentOverlay";
 
 import ShareButtons from "./components/ShareButtons";
 
 import { useTimeSnapshot } from "./hooks/useTimeSnapshot";
 
+import sixoLogo from "../Assets/logocompany/sixo_logo_alpha111.png";
+import hackingLogo from "../Assets/logocompany/hackinglogo-alpha.png";
 
 
 type SectionName = "A" | "B";
@@ -920,6 +930,28 @@ export default function App() {
 
   const bookFlipDurationMs = Number(resultBook?.flipDurationMs ?? 650);
 
+  const maxPages = Number(resultBook?.maxPages ?? 3);
+
+  const pageConfigs = (resultBook?.pageConfigs as string[]) ?? [];
+
+  const pageConfigMap: Record<string, Record<string, unknown>> = {
+
+    "identity-card": identityCardConfig,
+
+    "state-card": stateCardConfig,
+
+    "moment-reveal": momentRevealConfig,
+
+    "company-partners": companyPartnersConfig
+
+  };
+
+  // Logo map for company configs
+  const logoMap: Record<string, string> = {
+    "sixoLogo": sixoLogo,
+    "hackingLogo": hackingLogo
+  };
+
   const colorTransitionDurationMs = effectSettings.colorTransition.duration;
 
   const colorTransitionEasing = effectSettings.colorTransition.easing;
@@ -1053,6 +1085,12 @@ export default function App() {
     return byLang?.[lang] || "This is your moment";
 
   }, [lang]);
+
+  // Get current page config based on page index
+  const currentPageConfig = useMemo(() => {
+    const configName = pageConfigs[resultPageIndex];
+    return configName ? pageConfigMap[configName] : null;
+  }, [resultPageIndex, pageConfigs, pageConfigMap]);
 
 
 
@@ -1932,15 +1970,11 @@ export default function App() {
 
       if (flipPhase !== "idle") return;
 
-      // Allow up to 3 pages (0, 1, 2) even if no image files exist for page 3
+      // Allow up to maxPages pages
 
-      if (direction === "next" && resultPageIndex >= 2) return;
+      if (direction === "next" && resultPageIndex >= maxPages - 1) return;
 
       if (direction === "prev" && resultPageIndex <= 0) return;
-
-
-
-      setFlipDirection(direction);
 
       setFlipPhase("out");
 
@@ -2088,68 +2122,90 @@ export default function App() {
 
                   <div className="test-page">
 
-                    {/* Moment overlay inside test page - only show on page 3 */}
-
-                    {resultPageIndex === 2 && (
-
-                      <>
-
-                        <div 
-                          ref={momentOverlayRef}
-                          className="moment-capture-wrapper"
-                          style={{ 
-                            background: baseBg.gradient 
-                              ? `linear-gradient(135deg, ${baseBg.color} 0%, ${baseBg.deep} 100%)`
-                              : baseBg.color
-                          }}
-                        >
-
-                          <MomentOverlay 
-
-                            lang={lang}
-
-                            currentTime={currentTime}
-
-                            currentDate={currentDate}
-
-                          />
-
+                    {/* Page content based on config */}
+                    {currentPageConfig?.type === "moment" && (
+                      <div className="page-3-zones">
+                        {/* Zone 1: Moment Overlay Zone */}
+                        <div className="zone-moment-overlay">
+                          <div 
+                            ref={momentOverlayRef}
+                            className="moment-capture-wrapper"
+                            style={{ 
+                              background: baseBg.gradient 
+                                ? `linear-gradient(135deg, ${baseBg.color} 0%, ${baseBg.deep} 100%)`
+                                : baseBg.color
+                            }}
+                          >
+                            <MomentOverlay 
+                              lang={lang}
+                              currentTime={currentTime}
+                              currentDate={currentDate}
+                            />
+                          </div>
                         </div>
 
-                        <div className="page-3-buttons">
-
+                        {/* Zone 2: Action Buttons Zone */}
+                        {(currentPageConfig.showSaveMoment as boolean) && (
+                        <div className="zone-action-buttons">
                           <button 
-
                             className="save-moment-btn"
-
                             onClick={handleSaveMoment}
-
                           >
-
                             Save Moment
-
                           </button>
-
-                          <a 
-
-                            href={effectSettings.socialLinkUrl as string}
-
-                            target="_blank"
-
-                            rel="noopener noreferrer"
-
-                            className="social-link-btn"
-
-                          >
-
-                            Follow Us
-
-                          </a>
-
                         </div>
+                        )}
 
-                      </>
+                        {/* Zone 3: Company Links Zone */}
+                        {(currentPageConfig.showCompanyLinks as boolean) && (
+                        <div className="zone-company-links">
+                          <div className="company-links-container">
+                            <div className="company-links-scroll">
+                              <img src={sixoLogo} alt="Sixory Logo" className="company-logo-img" />
+                              <div className="company-links">
+                                <a 
+                                  href={effectSettings.socialLinkUrl as string}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="social-link-btn"
+                                >
+                                  Follow Us
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        )}
+                      </div>
+                    )}
 
+                    {currentPageConfig?.type === "partners" && (
+                      <div className="page-3-zones">
+                        {(currentPageConfig.companies as Array<{name: string; logo: string; socialLinks: Array<{platform: string; url: string}>}>).map((company, index) => (
+                          <div key={index} className="zone-company-links">
+                            <div className="company-links-container">
+                              <div className="company-links-scroll">
+                                <div className="company-card">
+                                  <img src={logoMap[company.logo]} alt={company.name} className="company-logo-img" />
+                                  <div className="company-links">
+                                    {company.socialLinks.map((social, socialIndex) => (
+                                      <a
+                                        key={socialIndex}
+                                        href={social.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="social-link-btn"
+                                      >
+                                        {social.platform}
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
 
                   </div>
@@ -2210,8 +2266,6 @@ export default function App() {
 
               </article>
 
-
-
               <div className="book-controls">
 
                 <button className="back-btn" onClick={() => turnPage("prev")} disabled={flipPhase !== "idle" || resultPageIndex === 0}>
@@ -2220,7 +2274,7 @@ export default function App() {
 
                 </button>
 
-                <p className="progress-text">{resultPageIndex + 1}/3</p>
+                <p className="progress-text">{resultPageIndex + 1}/{maxPages}</p>
 
                 <button
 
@@ -2228,7 +2282,7 @@ export default function App() {
 
                   onClick={() => turnPage("next")}
 
-                  disabled={flipPhase !== "idle" || resultPageIndex >= 2}
+                  disabled={flipPhase !== "idle" || resultPageIndex >= maxPages - 1}
 
                 >
 

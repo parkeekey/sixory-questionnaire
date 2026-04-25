@@ -1,0 +1,6 @@
+{
+  "type": "moment",
+  "description": "Shows moment overlay with time/date and save moment button",
+  "showSaveMoment": true,
+  "showCompanyLinks": false
+}
