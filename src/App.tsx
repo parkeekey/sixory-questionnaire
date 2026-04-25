@@ -28,8 +28,6 @@ import companyPartnersConfig from "./config/page-configs/company-partners.json";
 
 import MomentOverlay from "./components/MomentOverlay";
 
-import ShareButtons from "./components/ShareButtons";
-
 import { useTimeSnapshot } from "./hooks/useTimeSnapshot";
 
 import sixoLogo from "../Assets/logocompany/sixo_logo_alpha111.png";
