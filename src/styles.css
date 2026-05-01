@@ -631,14 +631,16 @@ button {
 
 .moment-capture-wrapper {
   position: relative;
-  width: 400px;
-  height: 300px;
+  width: 100%;
+  height: auto;
+  max-width: 500px;
   border-radius: 1rem;
   padding: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 300px;
 }
 
 .test-page {
