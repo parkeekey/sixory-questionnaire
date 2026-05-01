@@ -28,6 +28,7 @@ import companyPartnersConfig from "./config/page-configs/company-partners.json";
 
 import MomentOverlay from "./components/MomentOverlay";
 
+
 import { useTimeSnapshot } from "./hooks/useTimeSnapshot";
 
 import sixoLogo from "../Assets/logocompany/sixo_logo_alpha111.png";
@@ -194,7 +195,7 @@ const uiText: Record<
 
     menuTitle: "CHOOSE WHO YOU ARE",
 
-    menuCopy: "ตอบคำถาม 7 ข้อ เพื่อหา identity + state และแสดงชุดการ์ดที่ตรงกับคุณ",
+    menuCopy: "ตอบคำถาม 7 ข้อ เพื่อตามหาตัวตนที่ใช่ เพื่อให้เจอกับกาแฟที่คู่ควรกับเรา",
 
     startQuiz: "เริ่มทำแบบทดสอบ",
 
@@ -234,7 +235,7 @@ const uiText: Record<
 
     unlock: "ปลดล็อก",
 
-    lockedHint: `หน้า 2 จะถูกเบลอจนกว่าจะใส่รหัสผ่าน`,
+    lockedHint: "โปรดใส่รหัสผ่านเพื่อเผยตัวตนของคุณ",
 
     wrongPassword: "รหัสผ่านไม่ถูกต้อง",
 
@@ -248,7 +249,7 @@ const uiText: Record<
 
     menuTitle: "CHOOSE WHO YOU ARE",
 
-    menuCopy: "Answer 7 questions to find your identity + state and reveal your matching card set.",
+    menuCopy: "Answer 7 questions to find your true self and discover the coffee you truly deserve.",
 
     startQuiz: "Start Quiz",
 
@@ -288,7 +289,7 @@ const uiText: Record<
 
     unlock: "Unlock",
 
-    lockedHint: `Result page 2 is blurred until password is entered`,
+    lockedHint: "Please enter password to reveal your identity",
 
     wrongPassword: "Wrong password",
 
@@ -302,7 +303,7 @@ const uiText: Record<
 
     menuTitle: "CHOOSE WHO YOU ARE",
 
-    menuCopy: "回答 7 个问题，找出你的 identity + state，并显示对应卡片组合。",
+    menuCopy: "回答 7 个问题，开启寻我之旅，遇见那杯最配你的咖啡",
 
     startQuiz: "开始测试",
 
@@ -342,7 +343,7 @@ const uiText: Record<
 
     unlock: "解锁",
 
-    lockedHint: `结果第 2 页会被模糊，直到输入密码 `,
+    lockedHint: "请输入密码以揭示您的身份",
 
     wrongPassword: "密码错误",
 
@@ -974,12 +975,7 @@ export default function App() {
 
   const [passwordError, setPasswordError] = useState("");
 
-  const [showSecretModal, setShowSecretModal] = useState(false);
-
-  const [secretCode, setSecretCode] = useState("");
-
-  const [secretError, setSecretError] = useState("");
-
+  
   const momentOverlayRef = useRef<HTMLDivElement>(null);
 
   const [showReveal, setShowReveal] = useState(false);
@@ -1637,160 +1633,93 @@ export default function App() {
     setShowReveal(true);
 
   };
+  const handleSaveMoment = async () => {
 
+    console.log('Save moment clicked - saving all pages');
 
-
-  const handleSecretButton = () => {
-
-    setShowSecretModal(true);
-
-  };
-
-
-
-  const handleSecretCode = () => {
-
-    const code = secretCode.trim();
+    const images = result ? folderImages[result.assetFolder] ?? [] : [];
 
     
 
-    // Check if code matches any result password
+    // Save page 1 and page 2 cards
 
-    const matchedResult = Object.entries(RESULT_PASSWORDS).find(([_, password]) => password === code);
+    if (images.length > 0) {
+
+      console.log('Saving page cards...');
+
+      images.forEach((img) => {
+
+        const link = document.createElement('a');
+
+        link.href = img.src;
+
+        link.download = `sixory-page-${img.pageIndex + 1}-${Date.now()}.png`;
+
+        link.click();
+
+      });
+
+      console.log('Page downloads triggered');
+
+    }
 
     
 
-    if (matchedResult) {
+    // Save moment page
 
-      const [assetFolder] = matchedResult;
+    if (momentOverlayRef.current) {
 
-      // Find identity and state from asset folder
+      console.log('Saving moment page...');
 
-      for (const [identity, stateMap] of Object.entries(questionnaireSpec.mapping.identity_state_to_asset)) {
+      try {
 
-        for (const [state, folder] of Object.entries(stateMap)) {
+        const html2canvas = (await import('html2canvas')).default;
 
-          if (folder === assetFolder) {
+        const canvas = await html2canvas(momentOverlayRef.current, {
 
-            setPendingResult({ 
+          backgroundColor: null,
 
-              identity: identity as Identity, 
+          scale: 2,
 
-              state: state as EmotionState, 
+          logging: true,
 
-              assetFolder 
+        });
 
-            });
+        canvas.toBlob((blob) => {
 
-            setStarted(true);
+          if (blob) {
 
-            setShowReveal(true);
+            const url = URL.createObjectURL(blob);
 
-            setShowSecretModal(false);
+            const link = document.createElement('a');
 
-            setSecretCode("");
+            link.href = url;
 
-            setSecretError("");
+            link.download = `sixory-moment-page-${Date.now()}.png`;
 
-            return;
+            document.body.appendChild(link);
+
+            link.click();
+
+            document.body.removeChild(link);
+
+            URL.revokeObjectURL(url);
+
+            console.log('Moment page download triggered');
 
           }
 
-        }
+        });
+
+      } catch (error) {
+
+        console.error('Failed to save moment page:', error);
 
       }
 
-    }
+    } else {
 
-    
-
-    // If no match, show error
-
-    setSecretError("Invalid code");
-
-  };
-
-
-
-  const handleSaveMoment = async () => {
-
-    console.log('Save moment clicked');
-
-    console.log('Ref current:', momentOverlayRef.current);
-
-    
-
-    if (!momentOverlayRef.current) {
-
-      console.error('No ref found');
-
-      return;
-
-    }
-
-    
-
-    try {
-
-      console.log('Importing html2canvas...');
-
-      // Dynamically import html2canvas
-
-      const html2canvas = (await import('html2canvas')).default;
-
-      console.log('html2canvas imported:', html2canvas);
-
-      
-
-      console.log('Capturing canvas...');
-
-      const canvas = await html2canvas(momentOverlayRef.current, {
-
-        backgroundColor: null,
-
-        scale: 2,
-
-        logging: true,
-
-      });
-
-      console.log('Canvas captured:', canvas);
-
-      
-
-      // Convert to blob and download
-
-      canvas.toBlob((blob) => {
-
-        console.log('Blob created:', blob);
-
-        if (blob) {
-
-          const url = URL.createObjectURL(blob);
-
-          const link = document.createElement('a');
-
-          link.href = url;
-
-          link.download = `sixory-moment-${Date.now()}.png`;
-
-          document.body.appendChild(link);
-
-          link.click();
-
-          document.body.removeChild(link);
-
-          URL.revokeObjectURL(url);
-
-          console.log('Download triggered');
-
-        }
-
-      });
-
-    } catch (error) {
-
-      console.error('Failed to save moment:', error);
+      console.log('No moment page ref found');
 
     }
 
@@ -1862,12 +1791,7 @@ export default function App() {
 
                 </button>
 
-                <button className="tab-btn dev-button" onClick={handleSecretButton}>
-
-                  {t.devSecretButton}
-
-                </button>
-
+                
               </>
 
             )}
@@ -1877,68 +1801,6 @@ export default function App() {
         </main>
 
         
-
-        {showSecretModal && (
-
-          <div className="modal-overlay" onClick={() => setShowSecretModal(false)}>
-
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-
-              <h3 className="modal-title">Enter Secret Code</h3>
-
-              <input
-
-                type="text"
-
-                className="modal-input"
-
-                placeholder="Enter your code"
-
-                value={secretCode}
-
-                onChange={(e) => {
-
-                  setSecretCode(e.target.value);
-
-                  setSecretError("");
-
-                }}
-
-                onKeyDown={(e) => {
-
-                  if (e.key === 'Enter') {
-
-                    handleSecretCode();
-
-                  }
-
-                }}
-
-              />
-
-              {secretError && <p className="modal-error">{secretError}</p>}
-
-              <div className="modal-buttons">
-
-                <button className="tab-btn" onClick={() => setShowSecretModal(false)}>
-
-                  Cancel
-
-                </button>
-
-                <button className="tab-btn" onClick={handleSecretCode}>
-
-                  View Result
-
-                </button>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        )}
 
       </div>
 
@@ -2018,42 +1880,7 @@ export default function App() {
 
 
 
-        {/* Save buttons - only show on page 2 after password unlock */}
-
-        {resultPageIndex === 1 && (!isPasswordLockEnabled || isResultUnlocked) && (
-
-          <div className="save-section">
-
-            <button 
-
-              className="tab-btn"
-
-              onClick={() => {
-
-                images.forEach((img, index) => {
-
-                  const link = document.createElement('a');
-
-                  link.href = img.src;
-
-                  link.download = `world-of-coffee-card-${index + 1}.png`;
-
-                  link.click();
-
-                });
-
-              }}
-
-            >
-
-              Save Cards
-
-            </button>
-
-          </div>
-
-        )}
-
+        
 
 
         <main className="gallery-scroll animate-result-fade">
@@ -2106,15 +1933,39 @@ export default function App() {
 
                 {activeImage ? (
 
-                  <img
+                  <div>
+                    <img
 
-                    src={activeImage.src}
+                      src={activeImage.src}
 
-                    alt={`${result.assetFolder} ${activeImage.role.toLowerCase()} ${activeImage.number}`}
+                      alt={`${result.assetFolder} ${activeImage.role.toLowerCase()} ${activeImage.number}`}
 
-                    className="pair-image"
+                      className="pair-image"
 
-                  />
+                    />
+                    
+                    {/* Invisible element box for page 2 */}
+                    {activeImage.pageIndex === 2 && (!isPasswordLockEnabled || isResultUnlocked) && (
+                      <div className="page-2-invisible-box">
+                        {(!isPasswordLockEnabled || isResultUnlocked) && (
+                        <div className="zone-action-buttons" style={{ 
+                            marginTop: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.marginTop || "8px"
+                          }}>
+                          <button 
+                            className="save-moment-btn"
+                            onClick={handleSaveMoment}
+                            style={{ 
+                              fontSize: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.fontSize || "18px",
+                              padding: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.padding || "16px 32px"
+                            }}
+                          >
+                            Save Moment
+                          </button>
+                        </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                 ) : (
 
@@ -2142,21 +1993,70 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Zone 2: Action Buttons Zone */}
-                        {(currentPageConfig.showSaveMoment as boolean) && (
-                        <div className="zone-action-buttons">
+                        {(!isPasswordLockEnabled || isResultUnlocked) && (
+                        <div className="zone-action-buttons" style={{ 
+                            marginTop: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.marginTop || "8px"
+                          }}>
                           <button 
                             className="save-moment-btn"
                             onClick={handleSaveMoment}
+                            style={{ 
+                              fontSize: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.fontSize || "18px",
+                              padding: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.padding || "16px 32px"
+                            }}
                           >
                             Save Moment
                           </button>
                         </div>
                         )}
 
+                        <div className="thank-you-box">
+                          {(() => {
+                            try {
+                              const message = currentPageConfig.thankYouMessage as any;
+                              if (typeof message === 'string') {
+                                return <p className="thank-you-text">{message}</p>;
+                              }
+                              const langMessage = message?.[lang] || message?.en || message?.th || message?.zh;
+                              if (typeof langMessage === 'string') {
+                                return <p className="thank-you-text">{langMessage}</p>;
+                              }
+                              
+                              const textSizes = message?.textSizes || { heading1: "24px", heading2: "18px", heading3: "14px" };
+                              
+                              return (
+                                <div className="thank-you-headings">
+                                  <h1 className="thank-you-heading-1" style={{ fontSize: textSizes.heading1 }}>
+                                    {langMessage?.heading1 || 'Thank you'}
+                                  </h1>
+                                  <h2 className="thank-you-heading-2" style={{ fontSize: textSizes.heading2 }}>
+                                    {langMessage?.heading2 || 'Thank you'}
+                                  </h2>
+                                  <h3 className="thank-you-heading-3" style={{ fontSize: textSizes.heading3 }}>
+                                    {langMessage?.heading3 || 'Thank you'}
+                                  </h3>
+                                </div>
+                              );
+                            } catch (error) {
+                              return <p className="thank-you-text">Thank you</p>;
+                            }
+                          })()}
+                        </div>
+
                         {/* Zone 3: Company Links Zone */}
                         {(currentPageConfig.showCompanyLinks as boolean) && (
                         <div className="zone-company-links">
+                          {(currentPageConfig as any)?.contactUs ? (
+                            <div className="contact-us-container" style={{ 
+                              marginTop: (currentPageConfig as any)?.contactUs?.marginTop || "20px",
+                              marginBottom: (currentPageConfig as any)?.contactUs?.marginBottom || "15px"
+                            }}>
+                              <h2 className="contact-us-text" style={{ fontSize: (currentPageConfig as any)?.contactUs?.textSize || "20px" }}>
+                                {(currentPageConfig as any)?.contactUs?.text || "Contact us"}
+                              </h2>
+                            </div>
+                          ) : null}
+                          
                           <div className="company-links-container">
                             <div className="company-links-scroll">
                               <img src={sixoLogo} alt="Sixory Logo" className="company-logo-img" />
@@ -2179,6 +2079,15 @@ export default function App() {
 
                     {currentPageConfig?.type === "partners" && (
                       <div className="page-3-zones">
+                        {/* Contact Us Text */}
+                        {(currentPageConfig as any)?.contactUs ? (
+                          <div className="contact-us-container">
+                            <h2 className="contact-us-text" style={{ fontSize: (currentPageConfig as any)?.contactUs?.textSize || "50px" }}>
+                              {(currentPageConfig as any)?.contactUs?.text || "Contact us"}
+                            </h2>
+                          </div>
+                        ) : null}
+                        
                         {(currentPageConfig.companies as Array<{name: string; logo: string; socialLinks: Array<{platform: string; url: string}>}>).map((company, index) => (
                           <div key={index} className="zone-company-links">
                             <div className="company-links-container">
@@ -2218,7 +2127,9 @@ export default function App() {
 
                       <div className="lock-overlay-inner">
 
-                        <p className="lock-overlay-text">{t.lockedHint}</p>
+                        <p className="lock-overlay-text" style={{ fontSize: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.lockedHintTextSize || "16px" }}>
+                          {t.lockedHint}
+                        </p>
 
                         <div className="dev-lock-controls">
 
@@ -2252,7 +2163,9 @@ export default function App() {
 
                       <div className="lock-overlay-inner">
 
-                        <p className="lock-overlay-text">{t.lockedHint}</p>
+                        <p className="lock-overlay-text" style={{ fontSize: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.lockedHintTextSize || "16px" }}>
+                          {t.lockedHint}
+                        </p>
 
                       </div>
 

@@ -1,4 +1,5 @@
 {
   "type": "card",
-  "description": "Shows the state card image"
+  "description": "Shows the state card image",
+  "showSaveMoment": true
 }

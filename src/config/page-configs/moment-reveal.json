@@ -2,5 +2,34 @@
   "type": "moment",
   "description": "Shows moment overlay with time/date and save moment button",
   "showSaveMoment": true,
-  "showCompanyLinks": false
+  "showCompanyLinks": false,
+  "thankYouMessage": {
+    "en": {
+      "heading1": "Thank you to everyone who dropped by to try and opened your hearts to what we have to offer.",
+      "heading2": "May this cup of coffee mark the next chapter of your life.",
+      "heading3": "Until we meet again in the next chapter. ☕📘"
+    },
+    "th": {
+      "heading1": "ขอบคุณทุกคนที่เข้ามาลองและเปิดใจให้กับสิ่งที่เรานำเสนอ",
+      "heading2": "ขอให้กาแฟที่คุณได้เป็นบทถัดไปในชีวิตคุณ",
+      "heading3": "แล้วพบกันอีกครั้งในบทถัดไป ☕📘"
+    },
+    "zh": {
+      "heading1": "感谢每一位前来尝试并敞开心扉接纳我们所呈现的一切的人。",
+      "heading2": "愿你手中的这杯咖啡成为你人生中的下一个章节。",
+      "heading3": "让我们在下一个章节再见。 ☕📘"
+    },
+    "textSizes": {
+      "heading1": "14px",
+      "heading2": "12px",
+      "heading3": "16px"
+    },
+    "lockedHintTextSize": "24px",
+    "saveMomentButton": {
+      "textSize": "18px",
+      "padding": "16px 32px",
+      "fontSize": "18px",
+      "marginTop": "8px"
+    }
+  }
 }

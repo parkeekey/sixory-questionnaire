@@ -11,7 +11,6 @@
     "ship:build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/publish.ps1 -BuildBeforePush"
   },
   "dependencies": {
-    "html2canvas": "^1.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

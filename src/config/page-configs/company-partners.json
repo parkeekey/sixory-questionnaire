@@ -3,6 +3,12 @@
   "description": "Shows company logo and social links",
   "showSaveMoment": false,
   "showCompanyLinks": true,
+  "contactUs": {
+    "text": "CONTACT US",
+    "textSize": "50px",
+    "marginTop": "40px",
+    "marginBottom": "10px"
+  },
   "companies": [
     {
       "name": "Sixory Coffee",
@@ -25,10 +31,6 @@
         {
           "platform": "Facebook",
           "url": "https://www.facebook.com/Hacking.Coffee/"
-        },
-        {
-          "platform": "Instagram",
-          "url": "https://www.instagram.com/hackingcoffeeroasters/"
         }
       ]
     }

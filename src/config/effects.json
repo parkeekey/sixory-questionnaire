@@ -92,20 +92,21 @@
   "devLockReveal": false,
   "devPassword": "1234",
   "devRandomResultEnabled": true,
+  "showSecretButton": false,
   "socialLinkUrl": "https://www.instagram.com/sixorycoffee/",
   "resultPasswords": {
-    "feeler_softlight":    "test1234",
-    "feeler_drenchedbloom": "",
-    "feeler_quietembrance": "",
-    "seeker_frozenpath":   "",
-    "seeker_burningHorz":  "",
-    "seeker_stormseeker":  "",
-    "thinker_quiteillu":   "",
-    "thinker_innerstorm":  "",
-    "thinker_deepstillness": "",
-    "keeper_solarground":  "",
-    "keeper_innerfire":    "",
-    "keeper_stedyrain":    ""
+    "feeler_softlight":    "pink",
+    "feeler_drenchedbloom": "pink",
+    "feeler_quietembrance": "pink",
+    "seeker_frozenpath":   "gray",
+    "seeker_burningHorz":  "gray",
+    "seeker_stormseeker":  "gray",
+    "thinker_quiteillu":   "green",
+    "thinker_innerstorm":  "green",
+    "thinker_deepstillness": "green",
+    "keeper_solarground":  "brown",
+    "keeper_innerfire":    "brown",
+    "keeper_stedyrain":    "brown"
   },
   "resultCards": {
     "layout": "book-flip",
@@ -120,7 +121,7 @@
     "flipDurationMs": 650,
     "flipEasing": "cubic-bezier(0.22, 1, 0.36, 1)",
     "perspectivePx": 1200,
-    "maxPages": 5,
+    "maxPages": 4,
     "pageConfigs": [
       "identity-card",
       "state-card",
@@ -140,5 +141,10 @@
     "easing": "ease",
     "allowColorAnimation": false,
     "fallback": "instant-switch"
+  },
+  "thankYou": {
+    "h1FontSize": "1.8rem",
+    "h2FontSize": "1.2rem",
+    "h3FontSize": "1rem"
   }
 }
