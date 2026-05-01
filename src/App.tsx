@@ -1639,78 +1639,69 @@ export default function App() {
 
     const images = result ? folderImages[result.assetFolder] ?? [] : [];
 
-    
-
-    // Save page 1 and page 2 cards
-
-    if (images.length > 0) {
-
-      console.log('Saving page cards...');
-
-      images.forEach((img) => {
-
-        const link = document.createElement('a');
-
-        link.href = img.src;
-
-        link.download = `sixory-page-${img.pageIndex + 1}-${Date.now()}.png`;
-
-        link.click();
-
+    // Helper function to trigger download with delay
+    const triggerDownload = (href: string, filename: string, delay: number = 0) => {
+      return new Promise<void>((resolve) => {
+        setTimeout(() => {
+          try {
+            const link = document.createElement('a');
+            link.href = href;
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            
+            // Clean up after a short delay
+            setTimeout(() => {
+              document.body.removeChild(link);
+              resolve();
+            }, 100);
+          } catch (error) {
+            console.error('Download failed:', error);
+            resolve();
+          }
+        }, delay);
       });
+    };
 
+    // Save page 1 and page 2 cards with delays
+    if (images.length > 0) {
+      console.log('Saving page cards...');
+      
+      for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+        const filename = `sixory-page-${img.pageIndex + 1}-${Date.now()}.png`;
+        await triggerDownload(img.src, filename, i * 500); // 500ms delay between each
+      }
+      
       console.log('Page downloads triggered');
-
     }
 
-    
-
-    // Save moment page
-
+    // Save moment page with additional delay
     if (momentOverlayRef.current) {
-
       console.log('Saving moment page...');
-
+      
       try {
-
         const html2canvas = (await import('html2canvas')).default;
-
         const canvas = await html2canvas(momentOverlayRef.current, {
-
           backgroundColor: null,
-
           scale: 2,
-
           logging: true,
-
         });
 
-        canvas.toBlob((blob: Blob | null) => {
-
-          if (blob) {
-
-            const url = URL.createObjectURL(blob);
-
-            const link = document.createElement('a');
-
-            link.href = url;
-
-            link.download = `sixory-moment-page-${Date.now()}.png`;
-
-            document.body.appendChild(link);
-
-            link.click();
-
-            document.body.removeChild(link);
-
-            URL.revokeObjectURL(url);
-
-            console.log('Moment page download triggered');
-
-          }
-
+        const blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((blob) => resolve(blob));
         });
 
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const filename = `sixory-moment-page-${Date.now()}.png`;
+          const delay = images.length * 500; // Wait for all image downloads to complete
+          
+          await triggerDownload(url, filename, delay);
+          URL.revokeObjectURL(url);
+          console.log('Moment page download triggered');
+        }
       } catch (error) {
 
         console.error('Failed to save moment page:', error);
