@@ -35,7 +35,7 @@ export default function ShareButtons({ targetRef, resultText }: ShareButtonsProp
         logging: false
       });
       
-      canvas.toBlob(async (blob) => {
+      canvas.toBlob(async (blob: Blob | null) => {
         if (!blob) return;
         
         const file = new File([blob], 'result.png', { type: 'image/png' });

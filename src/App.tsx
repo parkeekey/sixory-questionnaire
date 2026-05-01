@@ -1685,7 +1685,7 @@ export default function App() {
 
         });
 
-        canvas.toBlob((blob) => {
+        canvas.toBlob((blob: Blob | null) => {
 
           if (blob) {
 
