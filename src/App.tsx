@@ -1635,83 +1635,67 @@ export default function App() {
   };
   const handleSaveMoment = async () => {
 
-    console.log('Save moment clicked - saving all pages');
+    console.log('Save moment clicked - creating zip package');
 
+    const JSZip = (await import('jszip')).default;
+    const { saveAs } = await import('file-saver');
+
+    const zip = new JSZip();
     const images = result ? folderImages[result.assetFolder] ?? [] : [];
 
-    // Helper function to trigger download with delay
-    const triggerDownload = (href: string, filename: string, delay: number = 0) => {
-      return new Promise<void>((resolve) => {
-        setTimeout(() => {
+    try {
+      // Add page 1 and page 2 cards to zip
+      if (images.length > 0) {
+        console.log('Adding page cards to zip...');
+        
+        for (const img of images) {
           try {
-            const link = document.createElement('a');
-            link.href = href;
-            link.download = filename;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            
-            // Clean up after a short delay
-            setTimeout(() => {
-              document.body.removeChild(link);
-              resolve();
-            }, 100);
+            const response = await fetch(img.src);
+            const blob = await response.blob();
+            const filename = `sixory-page-${img.pageIndex + 1}.png`;
+            zip.file(filename, blob);
+            console.log(`Added ${filename} to zip`);
           } catch (error) {
-            console.error('Download failed:', error);
-            resolve();
+            console.error(`Failed to fetch page ${img.pageIndex + 1}:`, error);
           }
-        }, delay);
-      });
-    };
-
-    // Save page 1 and page 2 cards with delays
-    if (images.length > 0) {
-      console.log('Saving page cards...');
-      
-      for (let i = 0; i < images.length; i++) {
-        const img = images[i];
-        const filename = `sixory-page-${img.pageIndex + 1}-${Date.now()}.png`;
-        await triggerDownload(img.src, filename, i * 500); // 500ms delay between each
-      }
-      
-      console.log('Page downloads triggered');
-    }
-
-    // Save moment page with additional delay
-    if (momentOverlayRef.current) {
-      console.log('Saving moment page...');
-      
-      try {
-        const html2canvas = (await import('html2canvas')).default;
-        const canvas = await html2canvas(momentOverlayRef.current, {
-          backgroundColor: null,
-          scale: 2,
-          logging: true,
-        });
-
-        const blob = await new Promise<Blob | null>((resolve) => {
-          canvas.toBlob((blob) => resolve(blob));
-        });
-
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const filename = `sixory-moment-page-${Date.now()}.png`;
-          const delay = images.length * 500; // Wait for all image downloads to complete
-          
-          await triggerDownload(url, filename, delay);
-          URL.revokeObjectURL(url);
-          console.log('Moment page download triggered');
         }
-      } catch (error) {
-
-        console.error('Failed to save moment page:', error);
-
       }
 
-    } else {
+      // Add moment page to zip
+      if (momentOverlayRef.current) {
+        console.log('Adding moment page to zip...');
+        
+        try {
+          const html2canvas = (await import('html2canvas')).default;
+          const canvas = await html2canvas(momentOverlayRef.current, {
+            backgroundColor: null,
+            scale: 2,
+            logging: true,
+          });
 
-      console.log('No moment page ref found');
+          const blob = await new Promise<Blob>((resolve) => {
+            canvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+            });
+          });
 
+          zip.file('sixory-moment-page.png', blob);
+          console.log('Added moment page to zip');
+        } catch (error) {
+          console.error('Failed to capture moment page:', error);
+        }
+      }
+
+      // Generate and download zip file
+      console.log('Generating zip file...');
+      const content = await zip.generateAsync({ type: 'blob' });
+      const zipName = `sixory-questionnaire-${new Date().toISOString().slice(0, 10)}.zip`;
+      
+      saveAs(content, zipName);
+      console.log(`Zip file "${zipName}" downloaded successfully`);
+
+    } catch (error) {
+      console.error('Failed to create zip package:', error);
     }
 
   };

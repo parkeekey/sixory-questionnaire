@@ -11,11 +11,15 @@
     "ship:build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/publish.ps1 -BuildBeforePush"
   },
   "dependencies": {
+    "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/file-saver": "^2.0.7",
+    "@types/jszip": "^3.4.0",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.8",
     "@types/react-dom": "^18.3.0",
