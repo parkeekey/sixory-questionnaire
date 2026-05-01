@@ -1633,25 +1633,45 @@ export default function App() {
     setShowReveal(true);
 
   };
-  const handleSaveMoment = async () => {
-
-    console.log('Save moment clicked - using native share API');
-
+  // Save individual page card
+  const handleSavePage = async (pageNumber: number) => {
+    console.log(`Save page ${pageNumber} clicked`);
+    
     const images = result ? folderImages[result.assetFolder] ?? [] : [];
-    const imageUrls: string[] = [];
-
-    try {
-      // Collect all image URLs
-      if (images.length > 0) {
-        for (const img of images) {
-          imageUrls.push(img.src);
-        }
-      }
-
-      // Add moment page URL (capture and create blob URL)
-      if (momentOverlayRef.current) {
-        console.log('Capturing moment page...');
+    const targetImage = images.find(img => img.pageIndex === pageNumber);
+    
+    if (targetImage) {
+      try {
+        const response = await fetch(targetImage.src);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
         
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `sixory-page-${pageNumber}.png`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+        
+        console.log(`Page ${pageNumber} saved successfully`);
+      } catch (error) {
+        console.error(`Failed to save page ${pageNumber}:`, error);
+      }
+    }
+  };
+
+  // Save moment page only
+  const handleSaveMoment = async () => {
+    console.log('Save moment page clicked');
+    
+    if (momentOverlayRef.current) {
+      try {
         const html2canvas = (await import('html2canvas')).default;
         const canvas = await html2canvas(momentOverlayRef.current, {
           backgroundColor: null,
@@ -1665,72 +1685,11 @@ export default function App() {
           });
         });
 
-        const momentUrl = URL.createObjectURL(blob);
-        imageUrls.push(momentUrl);
-      }
-
-      // Try Web Share API for native sharing
-      if (navigator.canShare && navigator.canShare({ files: [] })) {
-        console.log('Using Web Share API...');
-        
-        // Convert all URLs to File objects
-        const filePromises = imageUrls.map(async (url, index) => {
-          const response = await fetch(url);
-          const blob = await response.blob();
-          const filename = index < images.length 
-            ? `sixory-page-${index + 1}.png`
-            : `sixory-moment-page.png`;
-          
-          return new File([blob], filename, { type: 'image/png' });
-        });
-
-        const files = await Promise.all(filePromises);
-
-        // Trigger native share sheet
-        await navigator.share({
-          files: files,
-          title: 'Sixory Questionnaire Results',
-          text: 'Save your questionnaire results to your gallery',
-        });
-
-        console.log('Native share completed successfully');
-        
-        // Clean up moment URL
-        if (momentOverlayRef.current) {
-          URL.revokeObjectURL(imageUrls[imageUrls.length - 1]);
-        }
-
-      } else {
-        // Fallback: Individual downloads with delays
-        console.log('Web Share API not supported, using fallback...');
-        await fallbackDownloads(imageUrls);
-      }
-
-    } catch (error) {
-      console.error('Share failed, using fallback downloads:', error);
-      await fallbackDownloads(imageUrls);
-    }
-
-  };
-
-  // Fallback function for browsers that don't support Web Share API
-  const fallbackDownloads = async (imageUrls: string[]) => {
-    console.log('Using fallback download method...');
-    
-    for (let i = 0; i < imageUrls.length; i++) {
-      const url = imageUrls[i];
-      const filename = i < imageUrls.length - 1 
-        ? `sixory-page-${i + 1}.png`
-        : `sixory-moment-page.png`;
-      
-      try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
         
         const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = filename;
+        link.href = url;
+        link.download = 'sixory-moment-page.png';
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
@@ -1738,20 +1697,17 @@ export default function App() {
         // Clean up
         setTimeout(() => {
           document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
+          URL.revokeObjectURL(url);
         }, 100);
         
-        // Delay between downloads
-        if (i < imageUrls.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-        
+        console.log('Moment page saved successfully');
       } catch (error) {
-        console.error(`Failed to download ${filename}:`, error);
+        console.error('Failed to save moment page:', error);
       }
     }
   };
 
+  
 
 
   const unlockResult = () => {
@@ -1971,25 +1927,43 @@ export default function App() {
 
                     />
                     
-                    {/* Invisible element box for page 2 */}
-                    {activeImage.pageIndex === 2 && (!isPasswordLockEnabled || isResultUnlocked) && (
+                    {/* Save button for page 1 */}
+                    {activeImage.pageIndex === 1 && (
                       <div className="page-2-invisible-box">
-                        {(!isPasswordLockEnabled || isResultUnlocked) && (
                         <div className="zone-action-buttons" style={{ 
                             marginTop: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.marginTop || "8px"
                           }}>
                           <button 
                             className="save-moment-btn"
-                            onClick={handleSaveMoment}
+                            onClick={() => handleSavePage(1)}
                             style={{ 
                               fontSize: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.fontSize || "18px",
                               padding: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.padding || "16px 32px"
                             }}
                           >
-                            Save Moment
+                            Save Card
                           </button>
                         </div>
-                        )}
+                      </div>
+                    )}
+                    
+                    {/* Save button for page 2 */}
+                    {activeImage.pageIndex === 2 && (!isPasswordLockEnabled || isResultUnlocked) && (
+                      <div className="page-2-invisible-box">
+                        <div className="zone-action-buttons" style={{ 
+                            marginTop: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.marginTop || "8px"
+                          }}>
+                          <button 
+                            className="save-moment-btn"
+                            onClick={() => handleSavePage(2)}
+                            style={{ 
+                              fontSize: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.fontSize || "18px",
+                              padding: currentPageConfig?.thankYouMessage && (currentPageConfig.thankYouMessage as any)?.saveMomentButton?.padding || "16px 32px"
+                            }}
+                          >
+                            Save Card
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2214,19 +2188,15 @@ export default function App() {
 
                 <p className="progress-text">{resultPageIndex + 1}/{maxPages}</p>
 
-                <button
-
-                  className="tab-btn"
-
-                  onClick={() => turnPage("next")}
-
-                  disabled={flipPhase !== "idle" || resultPageIndex >= maxPages - 1}
-
-                >
-
-                  {t.next}
-
-                </button>
+                {resultPageIndex < maxPages - 1 && (
+                  <button 
+                    className="tab-btn" 
+                    onClick={() => turnPage("next")} 
+                    disabled={flipPhase !== "idle"}
+                  >
+                    {t.next}
+                  </button>
+                )}
 
               </div>
 
