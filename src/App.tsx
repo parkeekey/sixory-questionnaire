@@ -1635,69 +1635,121 @@ export default function App() {
   };
   const handleSaveMoment = async () => {
 
-    console.log('Save moment clicked - creating zip package');
+    console.log('Save moment clicked - using native share API');
 
-    const JSZip = (await import('jszip')).default;
-    const { saveAs } = await import('file-saver');
-
-    const zip = new JSZip();
     const images = result ? folderImages[result.assetFolder] ?? [] : [];
+    const imageUrls: string[] = [];
 
     try {
-      // Add page 1 and page 2 cards to zip
+      // Collect all image URLs
       if (images.length > 0) {
-        console.log('Adding page cards to zip...');
-        
         for (const img of images) {
-          try {
-            const response = await fetch(img.src);
-            const blob = await response.blob();
-            const filename = `sixory-page-${img.pageIndex + 1}.png`;
-            zip.file(filename, blob);
-            console.log(`Added ${filename} to zip`);
-          } catch (error) {
-            console.error(`Failed to fetch page ${img.pageIndex + 1}:`, error);
-          }
+          imageUrls.push(img.src);
         }
       }
 
-      // Add moment page to zip
+      // Add moment page URL (capture and create blob URL)
       if (momentOverlayRef.current) {
-        console.log('Adding moment page to zip...');
+        console.log('Capturing moment page...');
         
-        try {
-          const html2canvas = (await import('html2canvas')).default;
-          const canvas = await html2canvas(momentOverlayRef.current, {
-            backgroundColor: null,
-            scale: 2,
-            logging: true,
-          });
+        const html2canvas = (await import('html2canvas')).default;
+        const canvas = await html2canvas(momentOverlayRef.current, {
+          backgroundColor: null,
+          scale: 2,
+          logging: true,
+        });
 
-          const blob = await new Promise<Blob>((resolve) => {
-            canvas.toBlob((blob) => {
-              if (blob) resolve(blob);
-            });
+        const blob = await new Promise<Blob>((resolve) => {
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
           });
+        });
 
-          zip.file('sixory-moment-page.png', blob);
-          console.log('Added moment page to zip');
-        } catch (error) {
-          console.error('Failed to capture moment page:', error);
-        }
+        const momentUrl = URL.createObjectURL(blob);
+        imageUrls.push(momentUrl);
       }
 
-      // Generate and download zip file
-      console.log('Generating zip file...');
-      const content = await zip.generateAsync({ type: 'blob' });
-      const zipName = `sixory-questionnaire-${new Date().toISOString().slice(0, 10)}.zip`;
-      
-      saveAs(content, zipName);
-      console.log(`Zip file "${zipName}" downloaded successfully`);
+      // Try Web Share API for native sharing
+      if (navigator.canShare && navigator.canShare({ files: [] })) {
+        console.log('Using Web Share API...');
+        
+        // Convert all URLs to File objects
+        const filePromises = imageUrls.map(async (url, index) => {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          const filename = index < images.length 
+            ? `sixory-page-${index + 1}.png`
+            : `sixory-moment-page.png`;
+          
+          return new File([blob], filename, { type: 'image/png' });
+        });
+
+        const files = await Promise.all(filePromises);
+
+        // Trigger native share sheet
+        await navigator.share({
+          files: files,
+          title: 'Sixory Questionnaire Results',
+          text: 'Save your questionnaire results to your gallery',
+        });
+
+        console.log('Native share completed successfully');
+        
+        // Clean up moment URL
+        if (momentOverlayRef.current) {
+          URL.revokeObjectURL(imageUrls[imageUrls.length - 1]);
+        }
+
+      } else {
+        // Fallback: Individual downloads with delays
+        console.log('Web Share API not supported, using fallback...');
+        await fallbackDownloads(imageUrls);
+      }
 
     } catch (error) {
-      console.error('Failed to create zip package:', error);
+      console.error('Share failed, using fallback downloads:', error);
+      await fallbackDownloads(imageUrls);
     }
 
+  };
+
+  // Fallback function for browsers that don't support Web Share API
+  const fallbackDownloads = async (imageUrls: string[]) => {
+    console.log('Using fallback download method...');
+    
+    for (let i = 0; i < imageUrls.length; i++) {
+      const url = imageUrls[i];
+      const filename = i < imageUrls.length - 1 
+        ? `sixory-page-${i + 1}.png`
+        : `sixory-moment-page.png`;
+      
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }, 100);
+        
+        // Delay between downloads
+        if (i < imageUrls.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        
+      } catch (error) {
+        console.error(`Failed to download ${filename}:`, error);
+      }
+    }
   };
 
 
